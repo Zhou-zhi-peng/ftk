@@ -1,6 +1,7 @@
 /// <reference path="./objectnode.ts" />
 /// <reference path="./stage.ts" />
-
+/// <reference path="./sprite.ts" />
+/// <reference path="./ui/progressbar.ts" />
 
 namespace ftk {
     export type MouseEventName =
@@ -21,6 +22,7 @@ namespace ftk {
         "keyup";
 
     export type EngineEventName =
+        "loading" |
         "ready" |
         "shutdown" |
         "update" |
@@ -75,8 +77,8 @@ namespace ftk {
         private mEventCaptureContext: any;
         private mEventHandlerMap: Map<string, EventHandlerChain>;
         private mNoticeHandlerMap: Map<string, EventHandlerChain>;
-        private mResourceManager:IResourceDB;
-        private mFrameRate:number;
+        private mResourceManager: IResourceDB;
+        private mFrameRate: number;
         constructor(canvas: HTMLCanvasElement) {
             canvas.addEventListener("mousedown", (ev) => { this.OnMouseDown(ev); });
             canvas.addEventListener("mouseup", (ev) => { this.OnMouseUp(ev); });
@@ -103,6 +105,7 @@ namespace ftk {
             this.mEventHandlerMap.set("touchstart", new EventHandlerChain());
             this.mEventHandlerMap.set("keydown", new EventHandlerChain());
             this.mEventHandlerMap.set("keyup", new EventHandlerChain());
+            this.mEventHandlerMap.set("loading", new EventHandlerChain());
             this.mEventHandlerMap.set("ready", new EventHandlerChain());
             this.mEventHandlerMap.set("shutdown", new EventHandlerChain());
             this.mEventHandlerMap.set("update", new EventHandlerChain());
@@ -117,20 +120,21 @@ namespace ftk {
         }
 
         public get FrameRate(): number { return this.mFrameRate; }
-        public set FrameRate(value: number) { this.mFrameRate = value; }
+        protected setFrameRate(value: number) { this.mFrameRate = value; }
+        public get ViewportWidth(): number { return this.mCanvas.width; }
+        public get ViewportHeight(): number { return this.mCanvas.height; }
         public get Root(): Stage { return this.mRootNode; }
-        public get R():IResourceDB{
+        public get R(): IResourceDB {
             return this.mResourceManager;
         }
 
         public Run(): void {
-            this.R.Edit().LoadAll().then(() => {
-                this.callEventHandler("ready", new EngineEvent(this, null));
-                this.StartLoop();
-            }).catch((reason)=>{
-                this.callEventHandler("fault",new EngineEvent(this, reason))
-            });
+            this.mRC.clearRect(0, 0, this.ViewportWidth, this.ViewportHeight);
+            this.StartLoop();
+            this.OnRun();
         }
+
+        protected abstract OnRun():void;
 
         public Notify(source: any, name: string, broadcast: boolean, message: any): any {
             let ev = new NoticeEvent(source, name, broadcast, message);
@@ -277,27 +281,202 @@ namespace ftk {
         }
     }
 
-    class EngineImpl extends AbstractEngine {
-        public Shutdown(): void {
-            this.callEventHandler("shutdown", new EngineEvent(this, null));
-            this.R.Edit().Clear();
-        }
-    }
-
     export type LibrarySetupOptions = {
         canvas: HTMLCanvasElement,
         ViewportWidth?: number;
         ViewportHeight?: number;
         VideoQuality?: number;
         FrameRate?: number;
+        HideLogo?: boolean;
+        HideLoading?: boolean;
     };
+
+    export class EngineLogoSprite extends Sprite {
+        private mColor0 = new Color(0xff0060ff);
+        private mColor1 = new Color(0xff0000ff);
+        private mShadowBlur = 5;
+        constructor(x: number, y: number, w: number, h: number, id?: string) {
+            super(id);
+            this.Position = { x: x, y: y };
+            this.Resize(w, h);
+            this.BasePoint = { x: w / 2, y: h / 2 };
+        }
+
+        protected OnRander(rc: CanvasRenderingContext2D): void {
+            let box = this.Box;
+            this.DrawEngineLogo(rc, box.x, box.y, Math.min(box.w, box.h));
+        }
+
+        protected OnUpdate(timestamp: number): void {
+            this.mShadowBlur = Math.sin(timestamp/300)*15+20;
+            
+        }
+        private DrawEngineLogo(rc: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+            let r0 = size / 2;
+            let r1 = r0 / 1.67;
+            let xc = x + r0;
+            let yc = y + r0;
+            const astep = Math.PI / 3;
+            rc.beginPath();
+            let angle = astep;
+            rc.moveTo(xc + r0, yc);
+            for (let i = 1; i < 6; ++i) {
+                rc.lineTo(xc + Math.cos(angle) * r0, yc + Math.sin(angle) * r0);
+                angle += astep;
+            }
+
+            rc.closePath();
+            rc.fillStyle = this.mColor0.toRGBAString();
+            let shadowColor = new Color(rc.fillStyle);
+            shadowColor.addLightness(0x50);
+            rc.shadowColor = shadowColor.toRGBAString();
+            rc.shadowBlur = this.mShadowBlur;
+            rc.fill();
+
+            rc.beginPath();
+            angle = astep;
+            rc.moveTo(xc + r1, yc);
+            for (let i = 1; i < 6; ++i) {
+                rc.lineTo(xc + Math.cos(angle) * r1, yc + Math.sin(angle) * r1);
+                angle += astep;
+            }
+            rc.closePath();
+            rc.shadowBlur = 0;
+            rc.fillStyle = this.mColor1.toRGBAString();
+            rc.fill();
+
+            rc.beginPath();
+            let x0 = xc + r0;
+            let y0 = yc;
+            let x1 = xc + r1;
+            let y1 = yc;
+            angle = astep;
+            rc.moveTo(x1, y1);
+            for (let i = 1; i < 7; ++i) {
+                x1 = xc + Math.cos(angle) * r1;
+                y1 = yc + Math.sin(angle) * r1;
+                let nx = xc + Math.cos(angle) * r0;
+                let ny = yc + Math.sin(angle) * r0;
+                rc.lineTo(x1, y1);
+                rc.lineTo(nx, ny);
+                rc.lineTo(x0, y0);
+                rc.moveTo(x1, y1);
+                x0 = nx;
+                y0 = ny;
+                angle += astep;
+            }
+            //canvas.closePath();
+            rc.lineWidth = 0.8;
+            rc.strokeStyle = "#fff";
+            rc.stroke();
+
+            rc.fillStyle = this.mColor1.toRGBAString();
+            rc.strokeStyle = "#fff";
+            rc.lineWidth = 0.5;
+            rc.font = (size / 6) + "px serif";
+            rc.textBaseline = "middle";
+            rc.textAlign = "center";
+            rc.fillText("F T K", xc, yc);
+            rc.strokeText("F T K", xc, yc);
+        }
+    }
+
+    class EngineImpl extends AbstractEngine {
+        private mBackgroundLayer:ColoredLayer|undefined;
+        private mLogo:Sprite|undefined;
+        private mLoadingProgressBar:ui.ProgressBar|undefined;
+        constructor(options: LibrarySetupOptions) {
+            super(options.canvas);
+            if (options.FrameRate)
+                this.setFrameRate(options.FrameRate);
+            if (!options.HideLogo)
+                this.AddEngineLogo();
+            if (!options.HideLoading) {
+                this.AddLoadingProgressBar();
+                this.addEngineListener("loading", (ev) => {
+                    let progress = ev.Args as number;
+                    if(this.mLoadingProgressBar){
+                        this.mLoadingProgressBar.Value = progress;
+                    }
+                });
+            }
+            this.addEngineListener("ready", (ev) => {
+                if(this.mBackgroundLayer){
+                    if(this.mLogo){
+                        this.mBackgroundLayer.RemoveNode(this.mLogo.Id);
+                        this.mLogo=undefined;
+                    }
+                    if(this.mLoadingProgressBar){
+                        this.mBackgroundLayer.RemoveNode(this.mLoadingProgressBar.Id);
+                        this.mLoadingProgressBar=undefined;
+                    }
+                    this.Root.RemoveLayer(this.mBackgroundLayer.Id);
+                    this.mBackgroundLayer=undefined;
+                }
+            });
+        }
+        public OnRun():void{
+            if(this.mLogo){
+                setTimeout(()=>{
+                    if(this.mLogo)
+                        this.mLogo.Visible = false;
+                    if(this.mLoadingProgressBar)
+                        this.mLoadingProgressBar.Visible = true;
+                    this._Start();
+                },2000);
+            }else{
+                if(this.mLoadingProgressBar)
+                    this.mLoadingProgressBar.Visible = true;
+                this._Start();
+            }
+        }
+        public Shutdown(): void {
+            this.callEventHandler("shutdown", new EngineEvent(this, null));
+            this.R.Edit().Clear();
+        }
+
+        private _Start():void{
+            this.R.Edit().LoadAll((progress) => {
+                this.callEventHandler("loading", new EngineEvent(this, progress));
+            }).then(() => {
+                this.callEventHandler("ready", new EngineEvent(this, null));
+            }).catch((reason) => {
+                this.callEventHandler("fault", new EngineEvent(this, reason))
+            });
+        }
+
+        private AddBackgroundLayer():Layer{
+            if(!this.mBackgroundLayer){
+                this.mBackgroundLayer = new ColoredLayer();
+                this.mBackgroundLayer.BackgroundColor = new Color("#000");
+                this.Root.AddLayer(this.mBackgroundLayer);
+            }
+            return this.mBackgroundLayer;
+        }
+        private AddEngineLogo(): void {
+            let size = Math.min(this.ViewportWidth, this.ViewportHeight) / 5;
+            let x = (this.ViewportWidth - size) / 2;
+            let y = (this.ViewportHeight - size) / 2;
+            this.mLogo = new EngineLogoSprite(x, y, size, size);
+            this.AddBackgroundLayer().AddNode(this.mLogo);
+        }
+
+        private AddLoadingProgressBar(): void {
+            let size = Math.min(this.ViewportWidth, this.ViewportHeight) / 5;
+            let x = (this.ViewportWidth - size) / 2;
+            let y = (this.ViewportHeight - size) / 2;
+            this.mLoadingProgressBar = new ui.CircularProgressBar(x, y, size, size);
+            this.mLoadingProgressBar.Visible = false;
+            this.AddBackgroundLayer().AddNode(this.mLoadingProgressBar);
+        }
+    }
 
     let _EngineImpl: EngineImpl | null = null;
     export let Engine: AbstractEngine;
     export function LibrarySetup(options: LibrarySetupOptions): void {
         if (_EngineImpl)
             throw Error("Libraries cannot be initialized more than once!");
-        _EngineImpl = new EngineImpl(options.canvas);
+        _EngineImpl = new EngineImpl(options);
         Engine = _EngineImpl;
     }
 

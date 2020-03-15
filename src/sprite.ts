@@ -6,11 +6,13 @@ namespace ftk {
         private mAngle = 0;
         private mBasePoint: Point = { x: 0, y: 0 };
         private mID: string;
+        private mVisible: boolean;
         constructor(id?: string) {
             if ((!id) || id.length == 0) {
                 id = ftk.utility.GenerateIDString(16);
             }
             this.mID = id as string;
+            this.mVisible = true;
         }
         public get Id(): string {
             return this.mID;
@@ -56,30 +58,41 @@ namespace ftk {
             this.mBasePoint = { x: pos.x, y: pos.y };
         }
 
+        public get Visible(): boolean {
+            return this.mVisible;
+        }
+
+        public set Visible(value: boolean) {
+            this.mVisible = value;
+        }
+
         public PickTest(point: Point): boolean {
             let box = this.Box;
             return point.x > box.x && (point.x < box.x + box.w)
                 && point.y > box.y && (point.y < box.y + box.h);
         }
 
-        public Rander(canvas: CanvasRenderingContext2D | null): void {
-            if (canvas) {
-                canvas.save();
+        public Rander(rc: CanvasRenderingContext2D | null): void {
+            if (rc && this.Visible) {
+                rc.save();
                 let angle = this.Angle;
                 if (angle !== 0) {
                     let box = this.Box;
                     let bp = this.BasePoint;
                     let xc = box.x + bp.x;
                     let yc = box.y + bp.y;
-                    canvas.translate(xc, yc);
-                    canvas.rotate(angle);
-                    canvas.translate(-xc, -yc);
+                    rc.translate(xc, yc);
+                    rc.rotate(angle);
+                    rc.translate(-xc, -yc);
                 }
-                this.OnRander(canvas);
-                canvas.restore();
+                this.OnRander(rc);
+                rc.restore();
             }
         }
-        protected abstract OnRander(canvas: CanvasRenderingContext2D): void;
+        protected abstract OnRander(rc: CanvasRenderingContext2D): void;
+        protected OnUpdate(timestamp: number): void{
+
+        }
 
         protected OnDispatchTouchEvent(ev: GTouchEvent, forced: boolean): void {
         }
@@ -94,7 +107,7 @@ namespace ftk {
         }
 
         public DispatchTouchEvent(ev: GTouchEvent, forced: boolean): void {
-            if (forced || this.PickTest(ev.ChangedTouches[0])) {
+            if (this.mVisible && (forced || this.PickTest(ev.ChangedTouches[0]))) {
                 ev.Target = this;
                 ev.StopPropagation = true;
                 this.OnDispatchTouchEvent(ev, forced);
@@ -102,20 +115,22 @@ namespace ftk {
         }
 
         public DispatchMouseEvent(ev: GMouseEvent, forced: boolean): void {
-            if (forced || this.PickTest(ev)) {
+            if (this.mVisible && (forced || this.PickTest(ev))) {
                 ev.Target = this;
                 ev.StopPropagation = true;
                 this.OnDispatchMouseEvent(ev, forced);
             }
         }
         public DispatchKeyboardEvent(ev: GKeyboardEvent, forced: boolean): void {
-            this.OnDispatchKeyboardEvent(ev, forced);
+            if(this.mVisible){
+                this.OnDispatchKeyboardEvent(ev, forced);
+            }
         }
         public DispatchNoticeEvent(ev: NoticeEvent, forced: boolean): void {
             this.OnDispatchNoticeEvent(ev, forced);
         }
         public Update(timestamp: number): void {
-
+            this.OnUpdate(timestamp);
         }
     }
 }

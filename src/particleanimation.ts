@@ -1,12 +1,12 @@
 /// <reference path="./sprite.ts" />
 
 namespace ftk {
-    export abstract class ParticleAnimation extends Sprite {
+    export class ParticleAnimation extends Sprite {
         private mParticles: Array<Particle>;
         private mTicks: number;
         private mLastUpdateTime: number;
         private mUpdateTime: number;
-        private mParticleRander: ((canvas: CanvasRenderingContext2D, particle: Particle) => void) | null;
+        private mParticleRander: ((rc: CanvasRenderingContext2D, particle: Particle) => void) | null;
 
         public constructor() {
             super();
@@ -38,12 +38,12 @@ namespace ftk {
         }
         public DispatchKeyboardEvent(ev: GKeyboardEvent, forced: boolean): void {
         }
-        public OnRander(canvas: CanvasRenderingContext2D): void {
+        public OnRander(rc: CanvasRenderingContext2D): void {
             if (this.mParticleRander) {
                 let randerHook = this.mParticleRander;
-                this.mParticles.forEach((particle) => { randerHook.call(this, canvas, particle); });
+                this.mParticles.forEach((particle) => { randerHook.call(this, rc, particle); });
             } else {
-                this.mParticles.forEach((particle) => { particle.Render(canvas); });
+                this.mParticles.forEach((particle) => { particle.Render(rc); });
             }
         }
 

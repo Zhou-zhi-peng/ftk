@@ -4,15 +4,18 @@
 /// <reference path="../../src/imagesprite.ts" />
 /// <reference path="../../src/layer.ts" />
 /// <reference path="../../src/videosprite.ts" />
+/// <reference path="../../src/ui/button.ts" />
+/// <reference path="../../src/ui/progressbar.ts" />
 /// <reference path="../../src/net.ts" />
 
 
 namespace app {
-    class BackgroundLayer extends ftk.Layer {
+    class BackgroundLayer extends ftk.BackgroundImageLayer {
         constructor(stage: ftk.Stage) {
             super();
             let image = ftk.Engine.R.GetImage("res/images/desktop.jpg");
-            this.AddNode(new ftk.ImageSprite(image, stage.Width, stage.Height));
+            if(image)
+                this.BackgroundImage = image;
             this.EventTransparent = false;
         }
     }
@@ -21,11 +24,19 @@ namespace app {
         constructor() {
             super();
             let R = ftk.Engine.R;
-            let ready = new ftk.ImageButton(R.GetImage("res/images/ready.png"), "Game.Start.Button");
+            let ready = new ftk.ui.ImageButton(R.GetImage("res/images/ready.png"), "Game.Start.Button");
             ready.DownResource = R.GetImage("res/images/ready-down.png");
             ready.HoverResource = R.GetImage("res/images/ready-hover.png");
             ready.Position = { x: 280, y: 510 };
             this.AddNode(ready);
+
+            /*let p:ftk.ui.ProgressBar = new ftk.ui.CircularProgressBar(200, 200, 100, 100);
+            p.Value = 35;
+            this.AddNode(p);
+
+            p = new ftk.ui.RectangularProgressBar(100, 330, 500, 20);
+            p.Value = 35;
+            this.AddNode(p);*/
         }
     }
 
@@ -80,10 +91,16 @@ namespace app {
 
     export function Main(canvas:HTMLCanvasElement){
         ftk.LibrarySetup({
-            canvas:canvas
+            canvas:canvas,
+            HideLoading:false,
+            HideLogo:false
         });
 
         PrepareResources();
+        ftk.Engine.addEngineListener("loading",(ev)=>{
+            let progress = ev.Args as number;
+            console.log(progress);
+        });
         ftk.Engine.addEngineListener("ready",(ev)=>{
             console.log("program start.");
             let game = new DemoGame();

@@ -2,7 +2,7 @@ namespace ftk.utility {
     const kIDCharset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     export function GenerateIDString(n: number) {
         let res = "";
-        let kl = kIDCharset.length;
+        let kl = kIDCharset.length-1;
         for (let i = 0; i < n; i++) {
             let id = Math.ceil(Math.random() * kl);
             res += kIDCharset[id];

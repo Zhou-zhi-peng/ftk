@@ -84,7 +84,7 @@ var ftk;
         const kIDCharset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         function GenerateIDString(n) {
             let res = "";
-            let kl = kIDCharset.length;
+            let kl = kIDCharset.length - 1;
             for (let i = 0; i < n; i++) {
                 let id = Math.ceil(Math.random() * kl);
                 res += kIDCharset[id];
@@ -292,16 +292,578 @@ var ftk;
                 node.Update(timestamp);
             });
         }
-        Rander(canvas) {
+        Rander(rc) {
             for (let i = this.mLayerList.length - 1; i >= 0; --i) {
-                this.mLayerList[i].Rander(canvas);
+                this.mLayerList[i].Rander(rc);
             }
         }
     }
     ftk.Stage = Stage;
 })(ftk || (ftk = {}));
 /// <reference path="./objectnode.ts" />
+var ftk;
+(function (ftk) {
+    class Sprite {
+        constructor(id) {
+            this.mRectangle = { x: 0, y: 0, w: 0, h: 0 };
+            this.mAngle = 0;
+            this.mBasePoint = { x: 0, y: 0 };
+            if ((!id) || id.length == 0) {
+                id = ftk.utility.GenerateIDString(16);
+            }
+            this.mID = id;
+            this.mVisible = true;
+        }
+        get Id() {
+            return this.mID;
+        }
+        get Position() {
+            return { x: this.mRectangle.x + this.mBasePoint.x, y: this.mRectangle.y + this.mBasePoint.y };
+        }
+        set Position(pos) {
+            this.mRectangle.x = pos.x - this.mBasePoint.x;
+            this.mRectangle.y = pos.y - this.mBasePoint.y;
+        }
+        get Box() {
+            return { x: this.mRectangle.x, y: this.mRectangle.y, w: this.mRectangle.w, h: this.mRectangle.h };
+        }
+        OnResized() {
+        }
+        get Width() {
+            return this.Box.w;
+        }
+        get Height() {
+            return this.Box.h;
+        }
+        Resize(w, h) {
+            this.mRectangle.w = w;
+            this.mRectangle.h = h;
+            this.OnResized();
+        }
+        get Angle() {
+            return this.mAngle;
+        }
+        set Angle(angle) {
+            this.mAngle = angle;
+        }
+        get BasePoint() {
+            return { x: this.mBasePoint.x, y: this.mBasePoint.y };
+        }
+        set BasePoint(pos) {
+            this.mBasePoint = { x: pos.x, y: pos.y };
+        }
+        get Visible() {
+            return this.mVisible;
+        }
+        set Visible(value) {
+            this.mVisible = value;
+        }
+        PickTest(point) {
+            let box = this.Box;
+            return point.x > box.x && (point.x < box.x + box.w)
+                && point.y > box.y && (point.y < box.y + box.h);
+        }
+        Rander(rc) {
+            if (rc && this.Visible) {
+                rc.save();
+                let angle = this.Angle;
+                if (angle !== 0) {
+                    let box = this.Box;
+                    let bp = this.BasePoint;
+                    let xc = box.x + bp.x;
+                    let yc = box.y + bp.y;
+                    rc.translate(xc, yc);
+                    rc.rotate(angle);
+                    rc.translate(-xc, -yc);
+                }
+                this.OnRander(rc);
+                rc.restore();
+            }
+        }
+        OnUpdate(timestamp) {
+        }
+        OnDispatchTouchEvent(ev, forced) {
+        }
+        OnDispatchMouseEvent(ev, forced) {
+        }
+        OnDispatchKeyboardEvent(ev, forced) {
+        }
+        OnDispatchNoticeEvent(ev, forced) {
+        }
+        DispatchTouchEvent(ev, forced) {
+            if (this.mVisible && (forced || this.PickTest(ev.ChangedTouches[0]))) {
+                ev.Target = this;
+                ev.StopPropagation = true;
+                this.OnDispatchTouchEvent(ev, forced);
+            }
+        }
+        DispatchMouseEvent(ev, forced) {
+            if (this.mVisible && (forced || this.PickTest(ev))) {
+                ev.Target = this;
+                ev.StopPropagation = true;
+                this.OnDispatchMouseEvent(ev, forced);
+            }
+        }
+        DispatchKeyboardEvent(ev, forced) {
+            if (this.mVisible) {
+                this.OnDispatchKeyboardEvent(ev, forced);
+            }
+        }
+        DispatchNoticeEvent(ev, forced) {
+            this.OnDispatchNoticeEvent(ev, forced);
+        }
+        Update(timestamp) {
+            this.OnUpdate(timestamp);
+        }
+    }
+    ftk.Sprite = Sprite;
+})(ftk || (ftk = {}));
+/// <reference path="./sprite.ts" />
+var ftk;
+(function (ftk) {
+    class ParticleAnimation extends ftk.Sprite {
+        constructor() {
+            super();
+            this.mParticles = new Array();
+            this.mTicks = 0;
+            this.mLastUpdateTime = 0;
+            this.mUpdateTime = 0;
+            this.mParticleRander = null;
+        }
+        get Particles() {
+            return this.mParticles;
+        }
+        get Ticks() {
+            return this.mTicks;
+        }
+        get LastUpdateTime() {
+            return this.mLastUpdateTime;
+        }
+        get UpdateTime() {
+            return this.mUpdateTime;
+        }
+        AddParticle(particle) {
+            this.mParticles.push(particle);
+        }
+        DispatchTouchEvent(ev, forced) {
+        }
+        DispatchMouseEvent(ev, forced) {
+        }
+        DispatchKeyboardEvent(ev, forced) {
+        }
+        OnRander(rc) {
+            if (this.mParticleRander) {
+                let randerHook = this.mParticleRander;
+                this.mParticles.forEach((particle) => { randerHook.call(this, rc, particle); });
+            }
+            else {
+                this.mParticles.forEach((particle) => { particle.Render(rc); });
+            }
+        }
+        OnUpdate() {
+            return false;
+        }
+        Update(timestamp) {
+            this.mUpdateTime = timestamp;
+            if (!this.OnUpdate()) {
+                let arr = this.mParticles;
+                for (var i = 0; i < arr.length; ++i) {
+                    arr[i].Update();
+                }
+                var j = 0;
+                for (var i = 0; i < arr.length; ++i) {
+                    if (arr[i].active) {
+                        arr[j++] = arr[i];
+                    }
+                }
+                arr.length = j;
+            }
+            ++this.mTicks;
+            this.mLastUpdateTime = timestamp;
+        }
+    }
+    ftk.ParticleAnimation = ParticleAnimation;
+    class Particle {
+        constructor(pa, x, y) {
+            this.mPA = pa;
+            this.x = x;
+            this.y = y;
+            let pt = this.randPointOnCircle(Math.random() + 1);
+            this.vx = pt.x;
+            this.vy = pt.y;
+            this.life = Math.floor(Math.random() * 20) + 40;
+            this.bounce = 0.6;
+            this.gravity = 0.07;
+            this.drag = 0.998;
+            this.active = true;
+        }
+        get PA() {
+            return this.mPA;
+        }
+        Update() {
+            if (--this.life < 0) {
+                this.active = false;
+            }
+            this.vy += this.gravity;
+            this.vx *= this.drag;
+            this.x += this.vx;
+            this.y += this.vy;
+        }
+        randPointOnCircle(size) {
+            if (size == null) {
+                size = 1;
+            }
+            var x = 0.0;
+            var y = 0.0;
+            var s = 0.0;
+            do {
+                x = (Math.random() - 0.5) * 2.0;
+                y = (Math.random() - 0.5) * 2.0;
+                s = x * x + y * y;
+            } while (s > 1);
+            var scale = size / Math.sqrt(s);
+            return {
+                x: x * scale,
+                y: y * scale
+            };
+        }
+    }
+    ftk.Particle = Particle;
+})(ftk || (ftk = {}));
+var ftk;
+(function (ftk) {
+    class Color {
+        constructor(arg1, arg2, arg3, arg4) {
+            this.m_r = 0;
+            this.m_g = 0;
+            this.m_b = 0;
+            this.m_a = 1.0;
+            if (typeof (arg1) === "string")
+                this.parseString(arg1);
+            else if ((typeof (arg1) === "number") && (typeof (arg2) === "number") && (typeof (arg3) === "number")) {
+                this.m_r = arg1 & 0xFF;
+                this.m_g = arg2 & 0xFF;
+                this.m_b = arg3 & 0xFF;
+                if (typeof (arg4) === "number") {
+                    this.m_a = Color.ClampedAlphaValue(arg4);
+                }
+            }
+            else if (typeof (arg1) === "object") {
+                let color = arg1;
+                this.m_r = color.R;
+                this.m_g = color.G;
+                this.m_b = color.B;
+                this.m_a = color.A;
+            }
+            else if (typeof (arg1) === "number") {
+                this.m_b = arg1 & 0x000000FF;
+                this.m_g = (arg1 & 0x0000FF00) >>> 8;
+                this.m_r = (arg1 & 0x00FF0000) >>> 16;
+                this.m_a = ((arg1 & 0xFF000000) >>> 24) / 255.0;
+            }
+        }
+        Clone() {
+            return new Color(this.R, this.G, this.B, this.A);
+        }
+        parseString(value) {
+            let color = value.toUpperCase();
+            if (color.startsWith("#")) {
+                if (color.length == 4) {
+                    this.m_r = (parseInt(color.substr(1, 1), 16) & 0xFF) << 4;
+                    this.m_g = (parseInt(color.substr(2, 1), 16) & 0xFF) << 4;
+                    this.m_b = (parseInt(color.substr(3, 1), 16) & 0xFF) << 4;
+                }
+                else if (color.length >= 7) {
+                    this.m_r = parseInt(color.substr(1, 2), 16) & 0xFF;
+                    this.m_g = parseInt(color.substr(3, 2), 16) & 0xFF;
+                    this.m_b = parseInt(color.substr(5, 2), 16) & 0xFF;
+                    if (color.length == 9) {
+                        this.m_a = Color.ClampedAlphaValue((parseInt(color.substr(7, 2), 16) & 0xFF) / 255.0);
+                    }
+                }
+            }
+            else if (color.startsWith("RGB")) {
+                let start = color.indexOf("(", 3) + 1;
+                let end = color.indexOf(")", start);
+                color = color.substr(start, end - start);
+                let colors = color.split(',');
+                if (colors.length >= 3) {
+                    this.m_r = parseInt(colors[0].trim()) & 0xFF;
+                    this.m_g = parseInt(colors[1].trim()) & 0xFF;
+                    this.m_b = parseInt(colors[2].trim()) & 0xFF;
+                    if (colors.length >= 4) {
+                        this.m_a = Color.ClampedAlphaValue(parseFloat(colors[3].trim()));
+                    }
+                }
+            }
+        }
+        static ClampedColorValue(value) {
+            if (value > 0xFF)
+                return 0xFF;
+            else if (value < 0)
+                return 0;
+            return Math.round(value);
+        }
+        static ClampedAlphaValue(value) {
+            return Math.min(Math.max(value, 0.0), 1.0);
+        }
+        addLightness(value) {
+            this.R = this.m_r + value;
+            this.G = this.m_g + value;
+            this.B = this.m_b + value;
+        }
+        static blend(x, y, alpha) {
+            alpha = Color.ClampedColorValue(alpha);
+            let r = (x.m_r * (1 - alpha)) + (y.m_r * alpha);
+            let g = (x.m_g * (1 - alpha)) + (y.m_g * alpha);
+            let b = (x.m_b * (1 - alpha)) + (y.m_b * alpha);
+            let a = (x.m_a * (1 - alpha)) + (y.m_a * alpha);
+            return new Color(r, g, b, a);
+        }
+        blend(value, alpha) {
+            alpha = Color.ClampedColorValue(alpha);
+            this.R = (this.m_r * (1 - alpha)) + (value.R * alpha);
+            this.G = (this.m_g * (1 - alpha)) + (value.G * alpha);
+            this.B = (this.m_b * (1 - alpha)) + (value.B * alpha);
+            this.A = (this.m_a * (1 - alpha)) + (value.A * alpha);
+        }
+        grayscale() {
+            let x = Color.ClampedColorValue((this.m_r + this.m_g + this.m_b) / 3);
+            this.m_r = x;
+            this.m_g = x;
+            this.m_b = x;
+        }
+        inverse() {
+            this.m_r = 0xFF - this.m_r;
+            this.m_g = 0xFF - this.m_g;
+            this.m_b = 0xFF - this.m_b;
+        }
+        get R() {
+            return this.m_r;
+        }
+        get G() {
+            return this.m_g;
+        }
+        get B() {
+            return this.m_b;
+        }
+        get A() {
+            return this.m_a;
+        }
+        get Luminance() {
+            return (this.m_r * 0.2126) + (this.m_g * 0.7152) + (this.m_b * 0.0722);
+        }
+        set R(value) {
+            this.m_r = Color.ClampedColorValue(value);
+        }
+        set G(value) {
+            this.m_g = Color.ClampedColorValue(value);
+        }
+        set B(value) {
+            this.m_b = Color.ClampedColorValue(value);
+        }
+        set A(value) {
+            this.m_a = Color.ClampedAlphaValue(value);
+        }
+        get RGBValue() {
+            return (this.m_r << 16) | (this.m_g << 8) | (this.m_b);
+        }
+        get RGBAValue() {
+            return (this.m_r << 24) | (this.m_g << 16) | (this.m_b << 8) | (Math.round(this.m_a * 255));
+        }
+        toRGBString() {
+            return "rgb(" + this.m_r + "," + this.m_g + "," + this.m_b + ")";
+        }
+        toRGBAString() {
+            return "rgba(" + this.m_r + "," + this.m_g + "," + this.m_b + "," + this.m_a + ")";
+        }
+        pad(val, len) {
+            let padded = [];
+            for (var i = 0, j = Math.max(len - val.length, 0); i < j; i++) {
+                padded.push('0');
+            }
+            padded.push(val);
+            return padded.join('');
+        }
+        toHEXString(alpha) {
+            let rs = "#";
+            rs += this.pad((this.m_r & 0xFF).toString(16).toUpperCase(), 2);
+            rs += this.pad((this.m_g & 0xFF).toString(16).toUpperCase(), 2);
+            rs += this.pad((this.m_b & 0xFF).toString(16).toUpperCase(), 2);
+            if (alpha)
+                rs += this.pad((Math.round(this.m_a * 255) & 0xFF).toString(16).toUpperCase(), 2);
+            return rs;
+        }
+        toString() {
+            return this.toRGBAString();
+        }
+        toNumber() {
+            return (this.m_r << 16)
+                | (this.m_g << 8)
+                | this.m_b
+                | (((this.m_a * 255) & 0xFF) << 24);
+        }
+    }
+    ftk.Color = Color;
+})(ftk || (ftk = {}));
+/// <reference path="../particleanimation.ts" />
+/// <reference path="../color.ts" />
+var ftk;
+(function (ftk) {
+    var particles;
+    (function (particles) {
+        class SpeedParticle extends ftk.Particle {
+            constructor(pa, x, y, color) {
+                super(pa, x, y);
+                this.drag = 0;
+                this.color = color;
+                this.size = Math.random() * 10;
+            }
+            Render(rc) {
+                rc.beginPath();
+                rc.fillStyle = this.color.toRGBAString();
+                rc.arc(this.x, this.y, this.size, 0, 2 * Math.PI, true);
+                rc.fill();
+            }
+            Update() {
+                super.Update();
+                this.color.A = this.life;
+            }
+        }
+        particles.SpeedParticle = SpeedParticle;
+    })(particles = ftk.particles || (ftk.particles = {}));
+})(ftk || (ftk = {}));
+/// <reference path="../particleanimation.ts" />
+/// <reference path="../particles/seed.ts" />
+var ftk;
+(function (ftk) {
+    var ui;
+    (function (ui) {
+        class ProgressBar extends ftk.Sprite {
+            constructor(x, y, w, h, id) {
+                super(id);
+                this.Position = { x: x, y: y };
+                this.Resize(w, h);
+                this.mValue = 0;
+                this.mMin = 0;
+                this.mMax = 100;
+            }
+            get Value() {
+                return this.mValue;
+            }
+            set Value(value) {
+                if (value < this.mMin)
+                    value = this.mMin;
+                if (value > this.mMax)
+                    value = this.mMax;
+                this.mValue = value;
+            }
+            get MaxValue() {
+                return this.mMax;
+            }
+            set MaxValue(value) {
+                if (value < this.mMin)
+                    value = this.mMin;
+                this.mMax = value;
+            }
+            get MinValue() {
+                return this.mMin;
+            }
+            set MinValue(value) {
+                if (value > this.mMax)
+                    value = this.mMax;
+                this.mMin = value;
+            }
+        }
+        ui.ProgressBar = ProgressBar;
+        class CircularProgressBar extends ProgressBar {
+            constructor() {
+                super(...arguments);
+                this.mColor = new ftk.Color("#0F0");
+            }
+            OnRander(rc) {
+                let box = this.Box;
+                let r = Math.min(box.w, box.h) / 2;
+                let xc = box.x + box.w / 2;
+                let yc = box.y + box.h / 2;
+                let end = this.Value / Math.abs(this.MaxValue - this.MinValue) * (2 * Math.PI);
+                let bgn = this.mColor.Clone();
+                let tscr = this.mColor.Clone();
+                bgn.addLightness(-100);
+                tscr.addLightness(100);
+                rc.lineWidth = r / 6;
+                rc.beginPath();
+                rc.strokeStyle = bgn.toRGBAString();
+                rc.arc(xc, yc, r, end, 2 * Math.PI);
+                rc.stroke();
+                rc.beginPath();
+                rc.arc(xc, yc, r, 0, end);
+                rc.strokeStyle = this.Color.toRGBAString();
+                rc.stroke();
+                var percentage = Math.floor(this.Value) + '%';
+                rc.textAlign = "center";
+                rc.textBaseline = "middle";
+                rc.font = (r / 3).toFixed(0) + "px bold Arial";
+                rc.fillStyle = this.mColor.toRGBAString();
+                rc.shadowColor = tscr.toRGBAString();
+                rc.shadowBlur = ((r / 3));
+                rc.fillText(percentage, xc, yc);
+            }
+            get Color() {
+                return this.mColor;
+            }
+            set Color(value) {
+                this.mColor = value;
+            }
+        }
+        ui.CircularProgressBar = CircularProgressBar;
+        class RectangularProgressBar extends ProgressBar {
+            constructor() {
+                super(...arguments);
+                this.mColor = new ftk.Color("#0F0");
+            }
+            OnRander(rc) {
+                let box = this.Box;
+                let size = Math.max(box.w, box.h);
+                let end = this.Value / Math.abs(this.MaxValue - this.MinValue) * size;
+                let bgn = this.mColor.Clone();
+                let tcr = this.mColor.Clone();
+                let tscr = this.mColor.Clone();
+                bgn.addLightness(-100);
+                tcr.inverse();
+                tscr.addLightness(100);
+                rc.fillStyle = bgn.toRGBAString();
+                rc.fillRect(box.x, box.y, box.w, box.h);
+                rc.fillStyle = this.mColor.toRGBAString();
+                if (box.w > box.h) {
+                    rc.fillRect(box.x, box.y, end, box.h);
+                }
+                else {
+                    rc.fillRect(box.x, box.y + (box.h - end), box.w, end);
+                }
+                var percentage = Math.floor(this.Value) + '%';
+                rc.textAlign = "center";
+                rc.textBaseline = "middle";
+                rc.font = (Math.min(box.w, box.h) * 0.8).toFixed(0) + "px bold Arial";
+                rc.fillStyle = tcr.toRGBAString();
+                rc.shadowColor = tscr.toRGBAString();
+                rc.shadowBlur = (Math.min(box.w, box.h) * 0.2);
+                rc.fillText(percentage, box.x + box.w / 2, box.y + box.h / 2);
+            }
+            get Color() {
+                return this.mColor;
+            }
+            set Color(value) {
+                this.mColor = value;
+            }
+        }
+        ui.RectangularProgressBar = RectangularProgressBar;
+    })(ui = ftk.ui || (ftk.ui = {}));
+})(ftk || (ftk = {}));
+/// <reference path="./objectnode.ts" />
 /// <reference path="./stage.ts" />
+/// <reference path="./sprite.ts" />
+/// <reference path="./ui/progressbar.ts" />
 var ftk;
 (function (ftk) {
     class EventHandlerChain {
@@ -354,6 +916,7 @@ var ftk;
             this.mEventHandlerMap.set("touchstart", new EventHandlerChain());
             this.mEventHandlerMap.set("keydown", new EventHandlerChain());
             this.mEventHandlerMap.set("keyup", new EventHandlerChain());
+            this.mEventHandlerMap.set("loading", new EventHandlerChain());
             this.mEventHandlerMap.set("ready", new EventHandlerChain());
             this.mEventHandlerMap.set("shutdown", new EventHandlerChain());
             this.mEventHandlerMap.set("update", new EventHandlerChain());
@@ -367,18 +930,17 @@ var ftk;
             this.mEventHandlerMap.set("inactive", new EventHandlerChain());
         }
         get FrameRate() { return this.mFrameRate; }
-        set FrameRate(value) { this.mFrameRate = value; }
+        setFrameRate(value) { this.mFrameRate = value; }
+        get ViewportWidth() { return this.mCanvas.width; }
+        get ViewportHeight() { return this.mCanvas.height; }
         get Root() { return this.mRootNode; }
         get R() {
             return this.mResourceManager;
         }
         Run() {
-            this.R.Edit().LoadAll().then(() => {
-                this.callEventHandler("ready", new ftk.EngineEvent(this, null));
-                this.StartLoop();
-            }).catch((reason) => {
-                this.callEventHandler("fault", new ftk.EngineEvent(this, reason));
-            });
+            this.mRC.clearRect(0, 0, this.ViewportWidth, this.ViewportHeight);
+            this.StartLoop();
+            this.OnRun();
         }
         Notify(source, name, broadcast, message) {
             let ev = new ftk.NoticeEvent(source, name, broadcast, message);
@@ -504,17 +1066,178 @@ var ftk;
         }
     }
     ftk.AbstractEngine = AbstractEngine;
+    class EngineLogoSprite extends ftk.Sprite {
+        constructor(x, y, w, h, id) {
+            super(id);
+            this.mColor0 = new ftk.Color(0xff0060ff);
+            this.mColor1 = new ftk.Color(0xff0000ff);
+            this.mShadowBlur = 5;
+            this.Position = { x: x, y: y };
+            this.Resize(w, h);
+            this.BasePoint = { x: w / 2, y: h / 2 };
+        }
+        OnRander(rc) {
+            let box = this.Box;
+            this.DrawEngineLogo(rc, box.x, box.y, Math.min(box.w, box.h));
+        }
+        OnUpdate(timestamp) {
+            this.mShadowBlur = Math.sin(timestamp / 300) * 15 + 20;
+        }
+        DrawEngineLogo(rc, x, y, size) {
+            let r0 = size / 2;
+            let r1 = r0 / 1.67;
+            let xc = x + r0;
+            let yc = y + r0;
+            const astep = Math.PI / 3;
+            rc.beginPath();
+            let angle = astep;
+            rc.moveTo(xc + r0, yc);
+            for (let i = 1; i < 6; ++i) {
+                rc.lineTo(xc + Math.cos(angle) * r0, yc + Math.sin(angle) * r0);
+                angle += astep;
+            }
+            rc.closePath();
+            rc.fillStyle = this.mColor0.toRGBAString();
+            let shadowColor = new ftk.Color(rc.fillStyle);
+            shadowColor.addLightness(0x50);
+            rc.shadowColor = shadowColor.toRGBAString();
+            rc.shadowBlur = this.mShadowBlur;
+            rc.fill();
+            rc.beginPath();
+            angle = astep;
+            rc.moveTo(xc + r1, yc);
+            for (let i = 1; i < 6; ++i) {
+                rc.lineTo(xc + Math.cos(angle) * r1, yc + Math.sin(angle) * r1);
+                angle += astep;
+            }
+            rc.closePath();
+            rc.shadowBlur = 0;
+            rc.fillStyle = this.mColor1.toRGBAString();
+            rc.fill();
+            rc.beginPath();
+            let x0 = xc + r0;
+            let y0 = yc;
+            let x1 = xc + r1;
+            let y1 = yc;
+            angle = astep;
+            rc.moveTo(x1, y1);
+            for (let i = 1; i < 7; ++i) {
+                x1 = xc + Math.cos(angle) * r1;
+                y1 = yc + Math.sin(angle) * r1;
+                let nx = xc + Math.cos(angle) * r0;
+                let ny = yc + Math.sin(angle) * r0;
+                rc.lineTo(x1, y1);
+                rc.lineTo(nx, ny);
+                rc.lineTo(x0, y0);
+                rc.moveTo(x1, y1);
+                x0 = nx;
+                y0 = ny;
+                angle += astep;
+            }
+            //canvas.closePath();
+            rc.lineWidth = 0.8;
+            rc.strokeStyle = "#fff";
+            rc.stroke();
+            rc.fillStyle = this.mColor1.toRGBAString();
+            rc.strokeStyle = "#fff";
+            rc.lineWidth = 0.5;
+            rc.font = (size / 6) + "px serif";
+            rc.textBaseline = "middle";
+            rc.textAlign = "center";
+            rc.fillText("F T K", xc, yc);
+            rc.strokeText("F T K", xc, yc);
+        }
+    }
+    ftk.EngineLogoSprite = EngineLogoSprite;
     class EngineImpl extends AbstractEngine {
+        constructor(options) {
+            super(options.canvas);
+            if (options.FrameRate)
+                this.setFrameRate(options.FrameRate);
+            if (!options.HideLogo)
+                this.AddEngineLogo();
+            if (!options.HideLoading) {
+                this.AddLoadingProgressBar();
+                this.addEngineListener("loading", (ev) => {
+                    let progress = ev.Args;
+                    if (this.mLoadingProgressBar) {
+                        this.mLoadingProgressBar.Value = progress;
+                    }
+                });
+            }
+            this.addEngineListener("ready", (ev) => {
+                if (this.mBackgroundLayer) {
+                    if (this.mLogo) {
+                        this.mBackgroundLayer.RemoveNode(this.mLogo.Id);
+                        this.mLogo = undefined;
+                    }
+                    if (this.mLoadingProgressBar) {
+                        this.mBackgroundLayer.RemoveNode(this.mLoadingProgressBar.Id);
+                        this.mLoadingProgressBar = undefined;
+                    }
+                    this.Root.RemoveLayer(this.mBackgroundLayer.Id);
+                    this.mBackgroundLayer = undefined;
+                }
+            });
+        }
+        OnRun() {
+            if (this.mLogo) {
+                setTimeout(() => {
+                    if (this.mLogo)
+                        this.mLogo.Visible = false;
+                    if (this.mLoadingProgressBar)
+                        this.mLoadingProgressBar.Visible = true;
+                    this._Start();
+                }, 2000);
+            }
+            else {
+                if (this.mLoadingProgressBar)
+                    this.mLoadingProgressBar.Visible = true;
+                this._Start();
+            }
+        }
         Shutdown() {
             this.callEventHandler("shutdown", new ftk.EngineEvent(this, null));
             this.R.Edit().Clear();
+        }
+        _Start() {
+            this.R.Edit().LoadAll((progress) => {
+                this.callEventHandler("loading", new ftk.EngineEvent(this, progress));
+            }).then(() => {
+                this.callEventHandler("ready", new ftk.EngineEvent(this, null));
+            }).catch((reason) => {
+                this.callEventHandler("fault", new ftk.EngineEvent(this, reason));
+            });
+        }
+        AddBackgroundLayer() {
+            if (!this.mBackgroundLayer) {
+                this.mBackgroundLayer = new ftk.ColoredLayer();
+                this.mBackgroundLayer.BackgroundColor = new ftk.Color("#000");
+                this.Root.AddLayer(this.mBackgroundLayer);
+            }
+            return this.mBackgroundLayer;
+        }
+        AddEngineLogo() {
+            let size = Math.min(this.ViewportWidth, this.ViewportHeight) / 5;
+            let x = (this.ViewportWidth - size) / 2;
+            let y = (this.ViewportHeight - size) / 2;
+            this.mLogo = new EngineLogoSprite(x, y, size, size);
+            this.AddBackgroundLayer().AddNode(this.mLogo);
+        }
+        AddLoadingProgressBar() {
+            let size = Math.min(this.ViewportWidth, this.ViewportHeight) / 5;
+            let x = (this.ViewportWidth - size) / 2;
+            let y = (this.ViewportHeight - size) / 2;
+            this.mLoadingProgressBar = new ftk.ui.CircularProgressBar(x, y, size, size);
+            this.mLoadingProgressBar.Visible = false;
+            this.AddBackgroundLayer().AddNode(this.mLoadingProgressBar);
         }
     }
     let _EngineImpl = null;
     function LibrarySetup(options) {
         if (_EngineImpl)
             throw Error("Libraries cannot be initialized more than once!");
-        _EngineImpl = new EngineImpl(options.canvas);
+        _EngineImpl = new EngineImpl(options);
         ftk.Engine = _EngineImpl;
     }
     ftk.LibrarySetup = LibrarySetup;
@@ -525,112 +1248,6 @@ var ftk;
         ftk.Engine = undefined;
     }
     ftk.LibraryShutdown = LibraryShutdown;
-})(ftk || (ftk = {}));
-/// <reference path="./objectnode.ts" />
-var ftk;
-(function (ftk) {
-    class Sprite {
-        constructor(id) {
-            this.mRectangle = { x: 0, y: 0, w: 0, h: 0 };
-            this.mAngle = 0;
-            this.mBasePoint = { x: 0, y: 0 };
-            if ((!id) || id.length == 0) {
-                id = ftk.utility.GenerateIDString(16);
-            }
-            this.mID = id;
-        }
-        get Id() {
-            return this.mID;
-        }
-        get Position() {
-            return { x: this.mRectangle.x + this.mBasePoint.x, y: this.mRectangle.y + this.mBasePoint.y };
-        }
-        set Position(pos) {
-            this.mRectangle.x = pos.x - this.mBasePoint.x;
-            this.mRectangle.y = pos.y - this.mBasePoint.y;
-        }
-        get Box() {
-            return { x: this.mRectangle.x, y: this.mRectangle.y, w: this.mRectangle.w, h: this.mRectangle.h };
-        }
-        OnResized() {
-        }
-        get Width() {
-            return this.Box.w;
-        }
-        get Height() {
-            return this.Box.h;
-        }
-        Resize(w, h) {
-            this.mRectangle.w = w;
-            this.mRectangle.h = h;
-            this.OnResized();
-        }
-        get Angle() {
-            return this.mAngle;
-        }
-        set Angle(angle) {
-            this.mAngle = angle;
-        }
-        get BasePoint() {
-            return { x: this.mBasePoint.x, y: this.mBasePoint.y };
-        }
-        set BasePoint(pos) {
-            this.mBasePoint = { x: pos.x, y: pos.y };
-        }
-        PickTest(point) {
-            let box = this.Box;
-            return point.x > box.x && (point.x < box.x + box.w)
-                && point.y > box.y && (point.y < box.y + box.h);
-        }
-        Rander(canvas) {
-            if (canvas) {
-                canvas.save();
-                let angle = this.Angle;
-                if (angle !== 0) {
-                    let box = this.Box;
-                    let bp = this.BasePoint;
-                    let xc = box.x + bp.x;
-                    let yc = box.y + bp.y;
-                    canvas.translate(xc, yc);
-                    canvas.rotate(angle);
-                    canvas.translate(-xc, -yc);
-                }
-                this.OnRander(canvas);
-                canvas.restore();
-            }
-        }
-        OnDispatchTouchEvent(ev, forced) {
-        }
-        OnDispatchMouseEvent(ev, forced) {
-        }
-        OnDispatchKeyboardEvent(ev, forced) {
-        }
-        OnDispatchNoticeEvent(ev, forced) {
-        }
-        DispatchTouchEvent(ev, forced) {
-            if (forced || this.PickTest(ev.ChangedTouches[0])) {
-                ev.Target = this;
-                ev.StopPropagation = true;
-                this.OnDispatchTouchEvent(ev, forced);
-            }
-        }
-        DispatchMouseEvent(ev, forced) {
-            if (forced || this.PickTest(ev)) {
-                ev.Target = this;
-                ev.StopPropagation = true;
-                this.OnDispatchMouseEvent(ev, forced);
-            }
-        }
-        DispatchKeyboardEvent(ev, forced) {
-            this.OnDispatchKeyboardEvent(ev, forced);
-        }
-        DispatchNoticeEvent(ev, forced) {
-            this.OnDispatchNoticeEvent(ev, forced);
-        }
-        Update(timestamp) {
-        }
-    }
-    ftk.Sprite = Sprite;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
@@ -853,11 +1470,25 @@ var ftk;
                 return r;
             return undefined;
         }
-        LoadAll() {
+        LoadAll(progressHandler) {
+            let total = 0;
+            let count = 0;
+            if (progressHandler)
+                progressHandler(0);
             return new Promise((resolve, reject) => {
                 let list = new Array();
                 this.mResourceList.forEach((r) => {
-                    list.push(r.Load());
+                    if (!r.Loaded) {
+                        let p = r.Load();
+                        if (progressHandler) {
+                            p.then(() => {
+                                ++count;
+                                progressHandler((count * 100) / total);
+                            });
+                        }
+                        list.push(p);
+                        ++total;
+                    }
                 });
                 Promise.all(list).then(() => {
                     resolve();
@@ -901,68 +1532,17 @@ var ftk;
         set Resource(value) {
             this.mImage = value;
         }
-        OnRander(canvas) {
+        OnRander(rc) {
             let image = this.Resource.Image;
             let box = this.Box;
-            canvas.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, box.x, box.y, box.w, box.h);
+            rc.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, box.x, box.y, box.w, box.h);
         }
     }
     ftk.ImageSprite = ImageSprite;
-    class ImageButton extends ImageSprite {
-        constructor(resource, id, w, h) {
-            super(resource, w, h, id);
-            this.mPressState = false;
-            this.mNormalImage = this.Resource;
-        }
-        get Resource() {
-            return super.Resource;
-        }
-        set Resource(value) {
-            super.Resource = value;
-            this.mNormalImage = value;
-        }
-        get HoverResource() {
-            return this.mHoverImage;
-        }
-        set HoverResource(value) {
-            this.mHoverImage = value;
-        }
-        get DownResource() {
-            return this.mDownImage;
-        }
-        set DownResource(value) {
-            this.mDownImage = value;
-        }
-        OnDispatchMouseEvent(ev, forced) {
-            switch (ev.InputType) {
-                case ftk.InputEventType.MouseEnter:
-                    if (this.mHoverImage && (!this.mPressState))
-                        super.Resource = this.mHoverImage;
-                    break;
-                case ftk.InputEventType.MouseLeave:
-                    if (this.mNormalImage)
-                        super.Resource = this.mNormalImage;
-                    this.mPressState = false;
-                    break;
-                case ftk.InputEventType.MouseDown:
-                    if (this.mDownImage && (!this.mPressState)) {
-                        super.Resource = this.mDownImage;
-                        this.mPressState = true;
-                    }
-                    break;
-                case ftk.InputEventType.MouseUp:
-                    if (this.mHoverImage && (this.mPressState)) {
-                        this.mPressState = false;
-                        super.Resource = this.mHoverImage;
-                    }
-                    break;
-            }
-            ev.Cursor = "pointer";
-        }
-    }
-    ftk.ImageButton = ImageButton;
 })(ftk || (ftk = {}));
 /// <reference path="./objectnode.ts" />
+/// <reference path="./color.ts" />
+/// <reference path="./resource.ts" />
 var ftk;
 (function (ftk) {
     class Layer {
@@ -1020,11 +1600,11 @@ var ftk;
         Sort(compareCallback) {
             this.mNodes.sort(compareCallback);
         }
-        Rander(canvas) {
+        Rander(rc) {
             if (!this.Visible)
                 return;
             for (let i = this.mNodes.length - 1; i >= 0; --i) {
-                this.mNodes[i].Rander(canvas);
+                this.mNodes[i].Rander(rc);
             }
         }
         DispatchTouchEvent(ev, forced) {
@@ -1086,6 +1666,75 @@ var ftk;
         }
     }
     ftk.Layer = Layer;
+    class ColoredLayer extends Layer {
+        constructor() {
+            super();
+            this.mBackgroundColor = new ftk.Color("#00F");
+        }
+        get BackgroundColor() {
+            return this.mBackgroundColor;
+        }
+        set BackgroundColor(value) {
+            this.mBackgroundColor = value.Clone();
+        }
+        Rander(rc) {
+            rc.fillStyle = this.BackgroundColor.toRGBAString();
+            rc.fillRect(0, 0, rc.canvas.width, rc.canvas.height);
+            super.Rander(rc);
+        }
+    }
+    ftk.ColoredLayer = ColoredLayer;
+    class BackgroundImageLayer extends Layer {
+        constructor() {
+            super();
+            this.mBackgroundImage = new ftk.ImageResource("");
+            this.mRepeatStyle = "stretch";
+        }
+        get BackgroundImage() {
+            return this.mBackgroundImage;
+        }
+        set BackgroundImage(value) {
+            this.mBackgroundImage = value;
+        }
+        get RepeatStyle() {
+            return this.mRepeatStyle;
+        }
+        set RepeatStyle(value) {
+            this.mRepeatStyle = value;
+        }
+        Rander(rc) {
+            let image = this.BackgroundImage.Image;
+            let style = this.RepeatStyle;
+            if (style === "stretch") {
+                rc.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, 0, 0, rc.canvas.width, rc.canvas.height);
+            }
+            else if (style === "fit-stretch") {
+                let fitRatioX = image.naturalWidth / rc.canvas.width;
+                let fitRatioY = image.naturalHeight / rc.canvas.height;
+                let fitratio = Math.min(fitRatioX, fitRatioY);
+                rc.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, 0, 0, rc.canvas.width * fitratio, rc.canvas.height * fitratio);
+            }
+            else if (style === "center") {
+                let x = (rc.canvas.width - image.naturalWidth) / 2;
+                let y = (rc.canvas.height - image.naturalHeight) / 2;
+                rc.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, x, y, image.naturalWidth, image.naturalHeight);
+            }
+            else if (style === "none") {
+                let x = (rc.canvas.width - image.naturalWidth) / 2;
+                let y = (rc.canvas.height - image.naturalHeight) / 2;
+                rc.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, 0, 0, image.naturalWidth, image.naturalHeight);
+            }
+            else {
+                let pattern = rc.createPattern(image, 'repeat');
+                let oldfs = rc.fillStyle;
+                rc.fillStyle = pattern;
+                rc.fillRect(0, 0, rc.canvas.width, rc.canvas.height);
+                rc.fillStyle = oldfs;
+            }
+            super.Rander(rc);
+        }
+    }
+    ftk.BackgroundImageLayer = BackgroundImageLayer;
 })(ftk || (ftk = {}));
 /// <reference path="./sprite.ts" />
 /// <reference path="./resource.ts" />
@@ -1111,10 +1760,10 @@ var ftk;
         set Resource(value) {
             this.mVideo = value;
         }
-        OnRander(canvas) {
+        OnRander(rc) {
             let video = this.Resource.Video;
             let box = this.Box;
-            canvas.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, box.x, box.y, box.w, box.h);
+            rc.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, box.x, box.y, box.w, box.h);
         }
         Play() {
             this.Resource.Video.play();
@@ -1124,6 +1773,66 @@ var ftk;
         }
     }
     ftk.VideoSprite = VideoSprite;
+})(ftk || (ftk = {}));
+/// <reference path="../imagesprite.ts" />
+var ftk;
+(function (ftk) {
+    var ui;
+    (function (ui) {
+        class ImageButton extends ftk.ImageSprite {
+            constructor(resource, id, w, h) {
+                super(resource, w, h, id);
+                this.mPressState = false;
+                this.mNormalImage = this.Resource;
+            }
+            get Resource() {
+                return super.Resource;
+            }
+            set Resource(value) {
+                super.Resource = value;
+                this.mNormalImage = value;
+            }
+            get HoverResource() {
+                return this.mHoverImage;
+            }
+            set HoverResource(value) {
+                this.mHoverImage = value;
+            }
+            get DownResource() {
+                return this.mDownImage;
+            }
+            set DownResource(value) {
+                this.mDownImage = value;
+            }
+            OnDispatchMouseEvent(ev, forced) {
+                switch (ev.InputType) {
+                    case ftk.InputEventType.MouseEnter:
+                        if (this.mHoverImage && (!this.mPressState))
+                            super.Resource = this.mHoverImage;
+                        break;
+                    case ftk.InputEventType.MouseLeave:
+                        if (this.mNormalImage)
+                            super.Resource = this.mNormalImage;
+                        this.mPressState = false;
+                        break;
+                    case ftk.InputEventType.MouseDown:
+                        if (this.mDownImage && (!this.mPressState)) {
+                            super.Resource = this.mDownImage;
+                            this.mPressState = true;
+                        }
+                        break;
+                    case ftk.InputEventType.MouseUp:
+                        if (this.mHoverImage && (this.mPressState)) {
+                            this.mPressState = false;
+                            super.Resource = this.mHoverImage;
+                        }
+                        break;
+                }
+                ev.Cursor = "pointer";
+            }
+        }
+        ui.ImageButton = ImageButton;
+    })(ui = ftk.ui || (ftk.ui = {}));
 })(ftk || (ftk = {}));
 /// <reference path="./utility.ts" />
 var ftk;
@@ -1315,14 +2024,17 @@ var ftk;
 /// <reference path="../../src/imagesprite.ts" />
 /// <reference path="../../src/layer.ts" />
 /// <reference path="../../src/videosprite.ts" />
+/// <reference path="../../src/ui/button.ts" />
+/// <reference path="../../src/ui/progressbar.ts" />
 /// <reference path="../../src/net.ts" />
 var app;
 (function (app) {
-    class BackgroundLayer extends ftk.Layer {
+    class BackgroundLayer extends ftk.BackgroundImageLayer {
         constructor(stage) {
             super();
             let image = ftk.Engine.R.GetImage("res/images/desktop.jpg");
-            this.AddNode(new ftk.ImageSprite(image, stage.Width, stage.Height));
+            if (image)
+                this.BackgroundImage = image;
             this.EventTransparent = false;
         }
     }
@@ -1330,11 +2042,18 @@ var app;
         constructor() {
             super();
             let R = ftk.Engine.R;
-            let ready = new ftk.ImageButton(R.GetImage("res/images/ready.png"), "Game.Start.Button");
+            let ready = new ftk.ui.ImageButton(R.GetImage("res/images/ready.png"), "Game.Start.Button");
             ready.DownResource = R.GetImage("res/images/ready-down.png");
             ready.HoverResource = R.GetImage("res/images/ready-hover.png");
             ready.Position = { x: 280, y: 510 };
             this.AddNode(ready);
+            /*let p:ftk.ui.ProgressBar = new ftk.ui.CircularProgressBar(200, 200, 100, 100);
+            p.Value = 35;
+            this.AddNode(p);
+
+            p = new ftk.ui.RectangularProgressBar(100, 330, 500, 20);
+            p.Value = 35;
+            this.AddNode(p);*/
         }
     }
     class EffectsLayer extends ftk.Layer {
@@ -1382,9 +2101,15 @@ var app;
     }
     function Main(canvas) {
         ftk.LibrarySetup({
-            canvas: canvas
+            canvas: canvas,
+            HideLoading: false,
+            HideLogo: false
         });
         app.PrepareResources();
+        ftk.Engine.addEngineListener("loading", (ev) => {
+            let progress = ev.Args;
+            console.log(progress);
+        });
         ftk.Engine.addEngineListener("ready", (ev) => {
             console.log("program start.");
             let game = new DemoGame();
@@ -1415,118 +2140,6 @@ var ftk;
     class Animation {
     }
     ftk.Animation = Animation;
-})(ftk || (ftk = {}));
-/// <reference path="./sprite.ts" />
-var ftk;
-(function (ftk) {
-    class ParticleAnimation extends ftk.Sprite {
-        constructor() {
-            super();
-            this.mParticles = new Array();
-            this.mTicks = 0;
-            this.mLastUpdateTime = 0;
-            this.mUpdateTime = 0;
-            this.mParticleRander = null;
-        }
-        get Particles() {
-            return this.mParticles;
-        }
-        get Ticks() {
-            return this.mTicks;
-        }
-        get LastUpdateTime() {
-            return this.mLastUpdateTime;
-        }
-        get UpdateTime() {
-            return this.mUpdateTime;
-        }
-        AddParticle(particle) {
-            this.mParticles.push(particle);
-        }
-        DispatchTouchEvent(ev, forced) {
-        }
-        DispatchMouseEvent(ev, forced) {
-        }
-        DispatchKeyboardEvent(ev, forced) {
-        }
-        OnRander(canvas) {
-            if (this.mParticleRander) {
-                let randerHook = this.mParticleRander;
-                this.mParticles.forEach((particle) => { randerHook.call(this, canvas, particle); });
-            }
-            else {
-                this.mParticles.forEach((particle) => { particle.Render(canvas); });
-            }
-        }
-        OnUpdate() {
-            return false;
-        }
-        Update(timestamp) {
-            this.mUpdateTime = timestamp;
-            if (!this.OnUpdate()) {
-                let arr = this.mParticles;
-                for (var i = 0; i < arr.length; ++i) {
-                    arr[i].Update();
-                }
-                var j = 0;
-                for (var i = 0; i < arr.length; ++i) {
-                    if (arr[i].active) {
-                        arr[j++] = arr[i];
-                    }
-                }
-                arr.length = j;
-            }
-            ++this.mTicks;
-            this.mLastUpdateTime = timestamp;
-        }
-    }
-    ftk.ParticleAnimation = ParticleAnimation;
-    class Particle {
-        constructor(pa, x, y) {
-            this.mPA = pa;
-            this.x = x;
-            this.y = y;
-            let pt = this.randPointOnCircle(Math.random() + 1);
-            this.vx = pt.x;
-            this.vy = pt.y;
-            this.life = Math.floor(Math.random() * 20) + 40;
-            this.bounce = 0.6;
-            this.gravity = 0.07;
-            this.drag = 0.998;
-            this.active = true;
-        }
-        get PA() {
-            return this.mPA;
-        }
-        Update() {
-            if (--this.life < 0) {
-                this.active = false;
-            }
-            this.vy += this.gravity;
-            this.vx *= this.drag;
-            this.x += this.vx;
-            this.y += this.vy;
-        }
-        randPointOnCircle(size) {
-            if (size == null) {
-                size = 1;
-            }
-            var x = 0.0;
-            var y = 0.0;
-            var s = 0.0;
-            do {
-                x = (Math.random() - 0.5) * 2.0;
-                y = (Math.random() - 0.5) * 2.0;
-                s = x * x + y * y;
-            } while (s > 1);
-            var scale = size / Math.sqrt(s);
-            return {
-                x: x * scale,
-                y: y * scale
-            };
-        }
-    }
-    ftk.Particle = Particle;
 })(ftk || (ftk = {}));
 /// <reference path="../particleanimation.ts" />
 var ftk;

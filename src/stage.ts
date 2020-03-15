@@ -118,9 +118,9 @@ namespace ftk {
             });
         }
 
-        public Rander(canvas: CanvasRenderingContext2D): void {
+        public Rander(rc: CanvasRenderingContext2D): void {
             for (let i = this.mLayerList.length - 1; i >= 0; --i) {
-                this.mLayerList[i].Rander(canvas);
+                this.mLayerList[i].Rander(rc);
             }
         }
     }

@@ -5,7 +5,7 @@ namespace ftk {
         DispatchMouseEvent(ev: GMouseEvent, forced: boolean): void;
         DispatchKeyboardEvent(ev: GKeyboardEvent, forced: boolean): void;
         DispatchNoticeEvent(ev: NoticeEvent, forced: boolean): void;
-        Rander(canvas: CanvasRenderingContext2D | null): void;
+        Rander(rc: CanvasRenderingContext2D | null): void;
         Update(timestamp: number): void;
     }
 

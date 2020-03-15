@@ -25,10 +25,10 @@ namespace ftk {
             this.mVideo = value;
         }
 
-        protected OnRander(canvas: CanvasRenderingContext2D): void {
+        protected OnRander(rc: CanvasRenderingContext2D): void {
             let video = this.Resource.Video;
             let box = this.Box;
-            canvas.drawImage(
+            rc.drawImage(
                 video,
                 0,
                 0,

@@ -1,7 +1,9 @@
 /// <reference path="./objectnode.ts" />
+/// <reference path="./color.ts" />
+/// <reference path="./resource.ts" />
 
 namespace ftk {
-    export abstract class Layer implements IObjectNode {
+    export class Layer implements IObjectNode {
         private mNodes: Array<IObjectNode>;
         private mVisible: boolean;
         private mEventTransparent: boolean;
@@ -72,12 +74,12 @@ namespace ftk {
             this.mNodes.sort(compareCallback);
         }
 
-        public Rander(canvas: CanvasRenderingContext2D): void {
+        public Rander(rc: CanvasRenderingContext2D): void {
             if (!this.Visible)
                 return;
 
             for (let i = this.mNodes.length - 1; i >= 0; --i) {
-                this.mNodes[i].Rander(canvas);
+                this.mNodes[i].Rander(rc);
             }
         }
 
@@ -139,4 +141,118 @@ namespace ftk {
             }
         }
     }
+
+    export class ColoredLayer extends Layer{
+        private mBackgroundColor:Color;
+        constructor(){
+            super();
+            this.mBackgroundColor = new Color("#00F");
+        }
+
+        public get BackgroundColor(): Color {
+            return this.mBackgroundColor;
+        }
+
+        public set BackgroundColor(value: Color) {
+            this.mBackgroundColor = value.Clone();
+        }
+
+        public Rander(rc: CanvasRenderingContext2D): void {
+            rc.fillStyle = this.BackgroundColor.toRGBAString();
+            rc.fillRect(0, 0, rc.canvas.width, rc.canvas.height);
+            super.Rander(rc);
+        }
+    }
+
+    export type BackgroundImageRepeatStyle = "repeat"|"center"|"stretch"|"fit-stretch"|"none";
+    export class BackgroundImageLayer extends Layer{
+        private mBackgroundImage:ImageResource;
+        private mRepeatStyle:BackgroundImageRepeatStyle;
+        constructor(){
+            super();
+            this.mBackgroundImage = new ImageResource("");
+            this.mRepeatStyle = "stretch";
+        }
+
+        public get BackgroundImage(): ImageResource {
+            return this.mBackgroundImage;
+        }
+
+        public set BackgroundImage(value: ImageResource) {
+            this.mBackgroundImage = value;
+        }
+
+        public get RepeatStyle(): BackgroundImageRepeatStyle {
+            return this.mRepeatStyle;
+        }
+
+        public set RepeatStyle(value: BackgroundImageRepeatStyle) {
+            this.mRepeatStyle = value;
+        }
+
+        public Rander(rc: CanvasRenderingContext2D): void {
+            let image = this.BackgroundImage.Image;
+            let style = this.RepeatStyle;
+            if(style === "stretch"){
+                rc.drawImage(
+                    image,
+                    0,
+                    0,
+                    image.naturalWidth,
+                    image.naturalHeight,
+                    0,
+                    0,
+                    rc.canvas.width,
+                    rc.canvas.height);
+            }else if(style === "fit-stretch"){
+                let fitRatioX = image.naturalWidth / rc.canvas.width;
+                let fitRatioY = image.naturalHeight / rc.canvas.height;
+                let fitratio = Math.min(fitRatioX, fitRatioY);
+                rc.drawImage(
+                    image,
+                    0,
+                    0,
+                    image.naturalWidth,
+                    image.naturalHeight,
+                    0,
+                    0,
+                    rc.canvas.width*fitratio,
+                    rc.canvas.height*fitratio);
+            }else if(style === "center"){
+                let x = (rc.canvas.width - image.naturalWidth) / 2;
+                let y = (rc.canvas.height - image.naturalHeight) / 2;
+                rc.drawImage(
+                    image,
+                    0,
+                    0,
+                    image.naturalWidth,
+                    image.naturalHeight,
+                    x,
+                    y,
+                    image.naturalWidth,
+                    image.naturalHeight);
+            }else if(style === "none"){
+                let x = (rc.canvas.width - image.naturalWidth) / 2;
+                let y = (rc.canvas.height - image.naturalHeight) / 2;
+                rc.drawImage(
+                    image,
+                    0,
+                    0,
+                    image.naturalWidth,
+                    image.naturalHeight,
+                    0,
+                    0,
+                    image.naturalWidth,
+                    image.naturalHeight);
+            }else{
+                let pattern = rc.createPattern(image, 'repeat') as CanvasPattern;
+                let oldfs = rc.fillStyle;
+                rc.fillStyle = pattern;
+                rc.fillRect(0, 0, rc.canvas.width, rc.canvas.height);
+                rc.fillStyle = oldfs;
+            }
+            super.Rander(rc);
+        }
+    }
+
 }

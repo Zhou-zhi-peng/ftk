@@ -217,7 +217,7 @@ namespace ftk {
         Add(resource: IResource): IResourceDBEditor;
         Remove(name: string): boolean;
         Clear():void;
-        LoadAll(): Promise<void>;
+        LoadAll(progressHandler?:(progress:number)=>void): Promise<void>;
         forEach(callback: (resource: IResource) => boolean): void;
     }
 
@@ -268,11 +268,25 @@ namespace ftk {
             return undefined;
         }
 
-        public LoadAll(): Promise<void> {
+        public LoadAll(progressHandler?:(progress:number)=>void): Promise<void> {
+            let total = 0;
+            let count = 0;
+            if(progressHandler)
+                progressHandler(0);
             return new Promise<void>((resolve, reject) => {
                 let list = new Array<Promise<void>>();
                 this.mResourceList.forEach((r) => {
-                    list.push(r.Load());
+                    if(!r.Loaded){
+                        let p = r.Load();
+                        if(progressHandler){
+                            p.then(()=>{
+                                ++count;
+                                progressHandler((count*100)/total);
+                            });
+                        }
+                        list.push(p);
+                        ++total;
+                    }
                 });
                 Promise.all(list).then(() => {
                     resolve();

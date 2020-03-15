@@ -16,6 +16,7 @@ namespace app {
             let image = ftk.Engine.R.GetImage("res/images/desktop.jpg");
             if(image)
                 this.BackgroundImage = image;
+                this.RepeatStyle = "repeat";
             this.EventTransparent = false;
         }
     }

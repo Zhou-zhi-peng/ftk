@@ -208,16 +208,17 @@ namespace ftk {
                 let fitRatioX = image.naturalWidth / rc.canvas.width;
                 let fitRatioY = image.naturalHeight / rc.canvas.height;
                 let fitratio = Math.min(fitRatioX, fitRatioY);
+                let w = image.naturalWidth*fitratio;
+                let h = image.naturalHeight*fitratio;
+                let x = (rc.canvas.width-w)/2;
+                let y = (rc.canvas.height-h)/2;
+
                 rc.drawImage(
                     image,
-                    0,
-                    0,
+                    0, 0,
                     image.naturalWidth,
                     image.naturalHeight,
-                    0,
-                    0,
-                    rc.canvas.width*fitratio,
-                    rc.canvas.height*fitratio);
+                    x, y, w, h);
             }else if(style === "center"){
                 let x = (rc.canvas.width - image.naturalWidth) / 2;
                 let y = (rc.canvas.height - image.naturalHeight) / 2;

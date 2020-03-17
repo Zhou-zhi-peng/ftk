@@ -1,6 +1,7 @@
 /// <reference path="./sprite.ts" />
 
 namespace ftk {
+    type Point = geometry.twodim.Point;
     export class ParticleAnimation extends Sprite {
         private mParticles: Array<Particle>;
         private mTicks: number;
@@ -16,7 +17,7 @@ namespace ftk {
             this.mUpdateTime = 0;
             this.mParticleRander = null;
         }
-        public get Particles(): ReadOnlyArray<Particle> {
+        public get Particles(): IReadOnlyArray<Particle> {
             return this.mParticles;
         }
         public get Ticks(): number {
@@ -123,10 +124,10 @@ namespace ftk {
             } while (s > 1);
 
             var scale = size / Math.sqrt(s);
-            return {
-                x: x * scale,
-                y: y * scale
-            };
+            return new geometry.twodim.Point(
+                x * scale,
+                y * scale
+            );
         }
     }
 }

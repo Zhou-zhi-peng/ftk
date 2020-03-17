@@ -1,3 +1,4 @@
+/// <reference path="../../src/common.ts" />
 /// <reference path="../../src/engine.ts" />
 /// <reference path="../../src/stage.ts" />
 /// <reference path="../../src/sprite.ts" />
@@ -28,7 +29,7 @@ namespace app {
             let ready = new ftk.ui.ImageButton(R.GetImage("res/images/ready.png"), "Game.Start.Button");
             ready.DownResource = R.GetImage("res/images/ready-down.png");
             ready.HoverResource = R.GetImage("res/images/ready-hover.png");
-            ready.Position = { x: 280, y: 510 };
+            ready.Position = new ftk.geometry.twodim.Point(280,510);
             this.AddNode(ready);
 
             /*let p:ftk.ui.ProgressBar = new ftk.ui.CircularProgressBar(200, 200, 100, 100);
@@ -46,7 +47,7 @@ namespace app {
             super();
             let R = ftk.Engine.R;
             let fireworks = new ftk.particles.FireworkAnimation();
-            fireworks.Position = { x: 0, y: 0 };
+            fireworks.Position = new ftk.geometry.twodim.Point(0, 0);
             fireworks.Resize(stage.Width,stage.Height);
             this.AddNode(fireworks);
         }

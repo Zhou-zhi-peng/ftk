@@ -1,10 +1,13 @@
 /// <reference path="./objectnode.ts" />
 
 namespace ftk {
+    type Point = geometry.twodim.Point;
+    type Rectangle = geometry.twodim.Rectangle;
+
     export abstract class Sprite implements IObjectNode {
-        private mRectangle: Rectangle = { x: 0, y: 0, w: 0, h: 0 };
+        private mRectangle: Rectangle = new geometry.twodim.Rectangle();
         private mAngle = 0;
-        private mBasePoint: Point = { x: 0, y: 0 };
+        private mBasePoint: Point = new geometry.twodim.Point();
         private mID: string;
         private mVisible: boolean;
         constructor(id?: string) {
@@ -18,7 +21,9 @@ namespace ftk {
             return this.mID;
         }
         public get Position(): Point {
-            return { x: this.mRectangle.x + this.mBasePoint.x, y: this.mRectangle.y + this.mBasePoint.y };
+            return new geometry.twodim.Point(
+                this.mRectangle.x + this.mBasePoint.x, 
+                this.mRectangle.y + this.mBasePoint.y);
         }
         public set Position(pos: Point) {
             this.mRectangle.x = pos.x - this.mBasePoint.x;
@@ -26,7 +31,7 @@ namespace ftk {
         }
 
         public get Box(): Rectangle {
-            return { x: this.mRectangle.x, y: this.mRectangle.y, w: this.mRectangle.w, h: this.mRectangle.h };
+            return this.mRectangle.clone();
         }
 
         protected OnResized(): void {
@@ -52,10 +57,10 @@ namespace ftk {
         }
 
         public get BasePoint(): Point {
-            return { x: this.mBasePoint.x, y: this.mBasePoint.y };
+            return this.mBasePoint.clone();
         }
         public set BasePoint(pos: Point) {
-            this.mBasePoint = { x: pos.x, y: pos.y };
+            this.mBasePoint = pos.clone();
         }
 
         public get Visible(): boolean {
@@ -107,7 +112,8 @@ namespace ftk {
         }
 
         public DispatchTouchEvent(ev: GTouchEvent, forced: boolean): void {
-            if (this.mVisible && (forced || this.PickTest(ev.ChangedTouches[0]))) {
+            if (this.mVisible && (forced 
+                || this.PickTest(new geometry.twodim.Point(ev.ChangedTouches[0].x,ev.ChangedTouches[0].y)))) {
                 ev.Target = this;
                 ev.StopPropagation = true;
                 this.OnDispatchTouchEvent(ev, forced);
@@ -115,7 +121,8 @@ namespace ftk {
         }
 
         public DispatchMouseEvent(ev: GMouseEvent, forced: boolean): void {
-            if (this.mVisible && (forced || this.PickTest(ev))) {
+            if (this.mVisible && (forced 
+                || this.PickTest(new geometry.twodim.Point(ev.x,ev.y)))) {
                 ev.Target = this;
                 ev.StopPropagation = true;
                 this.OnDispatchMouseEvent(ev, forced);

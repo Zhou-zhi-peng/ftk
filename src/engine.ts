@@ -297,9 +297,9 @@ namespace ftk {
         private mShadowBlur = 5;
         constructor(x: number, y: number, w: number, h: number, id?: string) {
             super(id);
-            this.Position = { x: x, y: y };
+            this.Position = new geometry.twodim.Point(x,y);
             this.Resize(w, h);
-            this.BasePoint = { x: w / 2, y: h / 2 };
+            this.BasePoint = new geometry.twodim.Point(w / 2,h / 2);
         }
 
         protected OnRander(rc: CanvasRenderingContext2D): void {

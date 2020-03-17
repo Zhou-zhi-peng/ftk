@@ -1,6 +1,21 @@
 "use strict";
 var ftk;
 (function (ftk) {
+    function NewInstance(typename, ...args) {
+        let g = window;
+        let f = g[typename];
+        if (typeof (f) === "function") {
+            let fn = f;
+            args.unshift(null);
+            let cfn = fn.bind.apply(fn, args);
+            return cfn();
+        }
+        return undefined;
+    }
+    ftk.NewInstance = NewInstance;
+})(ftk || (ftk = {}));
+var ftk;
+(function (ftk) {
     class GEvent {
         constructor(source) {
             this.Source = source;
@@ -305,9 +320,9 @@ var ftk;
 (function (ftk) {
     class Sprite {
         constructor(id) {
-            this.mRectangle = { x: 0, y: 0, w: 0, h: 0 };
+            this.mRectangle = new ftk.geometry.twodim.Rectangle();
             this.mAngle = 0;
-            this.mBasePoint = { x: 0, y: 0 };
+            this.mBasePoint = new ftk.geometry.twodim.Point();
             if ((!id) || id.length == 0) {
                 id = ftk.utility.GenerateIDString(16);
             }
@@ -318,14 +333,14 @@ var ftk;
             return this.mID;
         }
         get Position() {
-            return { x: this.mRectangle.x + this.mBasePoint.x, y: this.mRectangle.y + this.mBasePoint.y };
+            return new ftk.geometry.twodim.Point(this.mRectangle.x + this.mBasePoint.x, this.mRectangle.y + this.mBasePoint.y);
         }
         set Position(pos) {
             this.mRectangle.x = pos.x - this.mBasePoint.x;
             this.mRectangle.y = pos.y - this.mBasePoint.y;
         }
         get Box() {
-            return { x: this.mRectangle.x, y: this.mRectangle.y, w: this.mRectangle.w, h: this.mRectangle.h };
+            return this.mRectangle.clone();
         }
         OnResized() {
         }
@@ -347,10 +362,10 @@ var ftk;
             this.mAngle = angle;
         }
         get BasePoint() {
-            return { x: this.mBasePoint.x, y: this.mBasePoint.y };
+            return this.mBasePoint.clone();
         }
         set BasePoint(pos) {
-            this.mBasePoint = { x: pos.x, y: pos.y };
+            this.mBasePoint = pos.clone();
         }
         get Visible() {
             return this.mVisible;
@@ -391,14 +406,16 @@ var ftk;
         OnDispatchNoticeEvent(ev, forced) {
         }
         DispatchTouchEvent(ev, forced) {
-            if (this.mVisible && (forced || this.PickTest(ev.ChangedTouches[0]))) {
+            if (this.mVisible && (forced
+                || this.PickTest(new ftk.geometry.twodim.Point(ev.ChangedTouches[0].x, ev.ChangedTouches[0].y)))) {
                 ev.Target = this;
                 ev.StopPropagation = true;
                 this.OnDispatchTouchEvent(ev, forced);
             }
         }
         DispatchMouseEvent(ev, forced) {
-            if (this.mVisible && (forced || this.PickTest(ev))) {
+            if (this.mVisible && (forced
+                || this.PickTest(new ftk.geometry.twodim.Point(ev.x, ev.y)))) {
                 ev.Target = this;
                 ev.StopPropagation = true;
                 this.OnDispatchMouseEvent(ev, forced);
@@ -522,10 +539,7 @@ var ftk;
                 s = x * x + y * y;
             } while (s > 1);
             var scale = size / Math.sqrt(s);
-            return {
-                x: x * scale,
-                y: y * scale
-            };
+            return new ftk.geometry.twodim.Point(x * scale, y * scale);
         }
     }
     ftk.Particle = Particle;
@@ -742,7 +756,7 @@ var ftk;
         class ProgressBar extends ftk.Sprite {
             constructor(x, y, w, h, id) {
                 super(id);
-                this.Position = { x: x, y: y };
+                this.Position = new ftk.geometry.twodim.Point(x, y);
                 this.Resize(w, h);
                 this.mValue = 0;
                 this.mMin = 0;
@@ -1072,9 +1086,9 @@ var ftk;
             this.mColor0 = new ftk.Color(0xff0060ff);
             this.mColor1 = new ftk.Color(0xff0000ff);
             this.mShadowBlur = 5;
-            this.Position = { x: x, y: y };
+            this.Position = new ftk.geometry.twodim.Point(x, y);
             this.Resize(w, h);
-            this.BasePoint = { x: w / 2, y: h / 2 };
+            this.BasePoint = new ftk.geometry.twodim.Point(w / 2, h / 2);
         }
         OnRander(rc) {
             let box = this.Box;
@@ -2022,6 +2036,7 @@ var ftk;
         net.ArrayBufferChannel = ArrayBufferChannel;
     })(net = ftk.net || (ftk.net = {}));
 })(ftk || (ftk = {}));
+/// <reference path="../../src/common.ts" />
 /// <reference path="../../src/engine.ts" />
 /// <reference path="../../src/stage.ts" />
 /// <reference path="../../src/sprite.ts" />
@@ -2050,7 +2065,7 @@ var app;
             let ready = new ftk.ui.ImageButton(R.GetImage("res/images/ready.png"), "Game.Start.Button");
             ready.DownResource = R.GetImage("res/images/ready-down.png");
             ready.HoverResource = R.GetImage("res/images/ready-hover.png");
-            ready.Position = { x: 280, y: 510 };
+            ready.Position = new ftk.geometry.twodim.Point(280, 510);
             this.AddNode(ready);
             /*let p:ftk.ui.ProgressBar = new ftk.ui.CircularProgressBar(200, 200, 100, 100);
             p.Value = 35;
@@ -2066,7 +2081,7 @@ var app;
             super();
             let R = ftk.Engine.R;
             let fireworks = new ftk.particles.FireworkAnimation();
-            fireworks.Position = { x: 0, y: 0 };
+            fireworks.Position = new ftk.geometry.twodim.Point(0, 0);
             fireworks.Resize(stage.Width, stage.Height);
             this.AddNode(fireworks);
         }
@@ -2121,6 +2136,7 @@ var app;
             game.StartUp();
         });
         ftk.Engine.Run();
+        console.log(ftk.NewInstance("ftk.geometry.twodim.Point"));
     }
     app.Main = Main;
 })(app || (app = {}));
@@ -2145,6 +2161,646 @@ var ftk;
     class Animation {
     }
     ftk.Animation = Animation;
+})(ftk || (ftk = {}));
+var ftk;
+(function (ftk) {
+    var geometry;
+    (function (geometry) {
+        var twodim;
+        (function (twodim) {
+            const PI_HALF = (Math.PI / 2);
+            class Point {
+                constructor(x, y) {
+                    this.x = x || 0;
+                    this.y = y || 0;
+                }
+                clone() {
+                    return new Point(this.x, this.y);
+                }
+                offset(x, y) {
+                    this.x += x;
+                    this.y += y;
+                }
+                setV(x, y) {
+                    if (x instanceof Point) {
+                        this.x = x.x;
+                        this.y = x.y;
+                    }
+                    else {
+                        this.x = x;
+                        this.y = y || 0;
+                    }
+                }
+                static distance(a, b) {
+                    let x = Math.abs(a.x - b.x);
+                    let y = Math.abs(a.y - b.y);
+                    return Math.sqrt((x * x + y * y));
+                }
+                distance(a) {
+                    return Point.distance(this, a);
+                }
+            }
+            twodim.Point = Point;
+            class Size {
+                constructor(cx, cy) {
+                    this.cx = cx || 0;
+                    this.cy = cy || 0;
+                }
+                clone() {
+                    return new Size(this.cx, this.cy);
+                }
+            }
+            twodim.Size = Size;
+            class Rectangle {
+                constructor(x, y, w, h) {
+                    if (x instanceof Point) {
+                        this.x = x.x;
+                        this.y = x.y;
+                        this.w = y.cx;
+                        this.h = y.cy;
+                    }
+                    else {
+                        this.x = x || 0;
+                        this.y = y || 0;
+                        this.w = w || 0;
+                        this.h = h || 0;
+                    }
+                }
+                clone() {
+                    return new Rectangle(this.x, this.y, this.w, this.h);
+                }
+                get left() {
+                    return this.x;
+                }
+                set left(value) {
+                    this.x = value;
+                }
+                get right() {
+                    return this.x + this.w;
+                }
+                set right(value) {
+                    this.w = value - this.x;
+                }
+                get top() {
+                    return this.y;
+                }
+                set top(value) {
+                    this.y = value;
+                }
+                get bottom() {
+                    return this.y + this.h;
+                }
+                set bottom(value) {
+                    this.h = value - this.y;
+                }
+                get center() {
+                    return new Point(this.x + this.w / 2, this.y + this.h / 2);
+                }
+                set center(value) {
+                    let ox = this.w / 2;
+                    let oy = this.h / 2;
+                    this.x = value.x - ox;
+                    this.y = value.y - oy;
+                }
+                get leftTop() {
+                    return new Point(this.x, this.y);
+                }
+                set leftTop(value) {
+                    this.x = value.x;
+                    this.y = value.y;
+                }
+                get size() {
+                    return new Size(this.w, this.h);
+                }
+                set size(value) {
+                    this.w = value.cx;
+                    this.h = value.cy;
+                }
+                get rightBottom() {
+                    return new Point(this.right, this.bottom);
+                }
+                set rightBottom(value) {
+                    this.right = value.x;
+                    this.bottom = value.y;
+                }
+                isInside(point) {
+                    return point.x > this.x && (point.x < this.x + this.w)
+                        && point.y > this.y && (point.y < this.y + this.h);
+                }
+                isBoundary(point) {
+                    if (point.x > this.x && (point.x < this.x + this.w)) {
+                        return point.y === this.y || point.y === this.bottom;
+                    }
+                    else if (point.x > this.x && (point.x < this.x + this.w)) {
+                        return point.x === this.x || point.x === this.right;
+                    }
+                    return false;
+                }
+                isInsideOrBoundary(point) {
+                    return point.x >= this.x && (point.x <= this.x + this.w)
+                        && point.y >= this.y && (point.y <= this.y + this.h);
+                }
+                static isIntersect(r0, r1) {
+                    let a = r0.leftTop;
+                    let b = r0.rightBottom;
+                    let c = r1.leftTop;
+                    let d = r1.rightBottom;
+                    return (Math.min(a.x, b.x) <= Math.max(c.x, d.x)
+                        && Math.min(c.y, d.y) <= Math.max(a.y, b.y)
+                        && Math.min(c.x, d.x) <= Math.max(a.x, b.x)
+                        && Math.min(a.y, b.y) <= Math.max(c.y, d.y));
+                }
+                isIntersect(r) {
+                    return Rectangle.isIntersect(this, r);
+                }
+                offset(x, y) {
+                    this.x += x;
+                    this.y += y;
+                }
+                expand(value) {
+                    this.x -= value;
+                    this.y -= value;
+                    this.w += value;
+                    this.h += value;
+                }
+                static normalize(a) {
+                    let x = 0;
+                    let w = 0;
+                    let y = 0;
+                    let h = 0;
+                    if (a.w < 0) {
+                        x = a.x + a.w;
+                        w = -a.w;
+                    }
+                    else {
+                        x = a.x;
+                        w = a.w;
+                    }
+                    if (a.h < 0) {
+                        y = a.y + a.h;
+                        h = -a.h;
+                    }
+                    else {
+                        y = a.y;
+                        h = a.h;
+                    }
+                    return new Rectangle(x, y, w, h);
+                }
+                normalize() {
+                    let x = 0;
+                    let w = 0;
+                    let y = 0;
+                    let h = 0;
+                    if (this.w < 0) {
+                        x = this.x + this.w;
+                        w = -this.w;
+                    }
+                    else {
+                        x = this.x;
+                        w = this.w;
+                    }
+                    if (this.h < 0) {
+                        y = this.y + this.h;
+                        h = -this.h;
+                    }
+                    else {
+                        y = this.y;
+                        h = this.h;
+                    }
+                    this.x = x;
+                    this.y = y;
+                    this.w = w;
+                    this.h = h;
+                }
+                HitTest(point, tolerance) {
+                    tolerance = tolerance || 0;
+                    let px = point.x;
+                    let py = point.y;
+                    let x = this.x - tolerance;
+                    let y = this.y - tolerance;
+                    let w = this.w + tolerance * 2;
+                    let h = this.h + tolerance * 2;
+                    if ((px >= x && px <= (x + w)) && (py >= y && py <= (y + h))) {
+                        if (py >= y && py <= (this.y + tolerance)) {
+                            if (px >= x && px <= (this.x + tolerance))
+                                return "top|left";
+                            else if (px >= (this.x + this.w - tolerance) && px <= (x + w))
+                                return "top|right";
+                            return "top";
+                        }
+                        else if (py >= (this.y + this.h - tolerance) && py <= (y + h)) {
+                            if (px >= x && px <= (this.x + tolerance))
+                                return "bottom|left";
+                            else if (px >= (this.x + this.w - tolerance) && px <= (x + w))
+                                return "bottom|right";
+                            return "bottom";
+                        }
+                        else if (px >= x && px <= (this.x + tolerance))
+                            return "left";
+                        else if (px >= (this.x + this.w - tolerance) && px <= (x + w))
+                            return "right";
+                        return "inside";
+                    }
+                    return "none";
+                }
+                static union(a, b) {
+                    let r1 = Rectangle.normalize(a);
+                    let r2 = Rectangle.normalize(b);
+                    let startX = r1.x < r2.x ? r1.x : r2.x;
+                    let endX = r1.right > r2.right ? r1.right : r2.right;
+                    let startY = r1.y < r2.y ? r1.y : r2.y;
+                    let endY = r1.bottom > r2.bottom ? r1.bottom : r2.bottom;
+                    return new Rectangle(startX, startY, endX - startX, endY - startY);
+                }
+                union(a) {
+                    this.normalize();
+                    let r1 = Rectangle.normalize(a);
+                    let r2 = this;
+                    let startX = r1.x < r2.x ? r1.x : r2.x;
+                    let endX = r1.right > r2.right ? r1.right : r2.right;
+                    let startY = r1.y < r2.y ? r1.y : r2.y;
+                    let endY = r1.bottom > r2.bottom ? r1.bottom : r2.bottom;
+                    this.x = startX;
+                    this.y = startY;
+                    this.w = endX - startX;
+                    this.h = endY - startY;
+                }
+                static intersection(r1, r2) {
+                    let merge = Rectangle.union(r1, r2);
+                    let startX = r1.x == merge.x ? r2.x : r1.x;
+                    let endX = r1.right == merge.right ? r2.right : r1.right;
+                    let startY = r1.y == merge.y ? r2.y : r1.y;
+                    let endY = r1.bottom == merge.bottom ? r2.bottom : r1.bottom;
+                    return new Rectangle(startX, startY, endX - startX, endY - startY);
+                }
+                intersection(r1, r2) {
+                    let merge = Rectangle.union(r1, r2);
+                    let startX = r1.x == merge.x ? r2.x : r1.x;
+                    let endX = r1.right == merge.right ? r2.right : r1.right;
+                    let startY = r1.y == merge.y ? r2.y : r1.y;
+                    let endY = r1.bottom == merge.bottom ? r2.bottom : r1.bottom;
+                    this.x = startX;
+                    this.y = startY;
+                    this.w = endX - startX;
+                    this.h = endY - startY;
+                }
+            }
+            twodim.Rectangle = Rectangle;
+            class LineSegment {
+                constructor(sx, sy, ex, ey) {
+                    if (sx instanceof Point && sy instanceof Point) {
+                        this.start = sx.clone();
+                        this.end = sy.clone();
+                    }
+                    else if (sx && sy && ex && ey) {
+                        this.start = new Point(sx, sy);
+                        this.end = new Point(ex, ey);
+                    }
+                    else {
+                        this.start = new Point(0, 0);
+                        this.end = new Point(0, 0);
+                    }
+                }
+                clone() {
+                    return new LineSegment(this.start, this.end);
+                }
+                static isInLineEx(point, lstart, lend) {
+                    return (((point.x - lstart.x) * (lstart.y - lend.y)) == ((lstart.x - lend.x) * (point.y - lstart.y))
+                        && (point.x >= Math.min(lstart.x, lend.x) && point.x <= Math.max(lstart.x, lend.x))
+                        && ((point.y >= Math.min(lstart.y, lend.y)) && (point.y <= Math.max(lstart.y, lend.y))));
+                }
+                static isInLine(point, line) {
+                    return LineSegment.isInLineEx(point, line.start, line.end);
+                }
+                isInLine(point) {
+                    return LineSegment.isInLine(point, this);
+                }
+                static isIntersect(l0, l1) {
+                    let a = l0.start;
+                    let b = l0.end;
+                    let c = l1.start;
+                    let d = l1.end;
+                    if (!(Math.min(a.x, b.x) <= Math.max(c.x, d.x)
+                        && Math.min(c.y, d.y) <= Math.max(a.y, b.y)
+                        && Math.min(c.x, d.x) <= Math.max(a.x, b.x)
+                        && Math.min(a.y, b.y) <= Math.max(c.y, d.y))) {
+                        return false;
+                    }
+                    let u = (c.x - a.x) * (b.y - a.y) - (b.x - a.x) * (c.y - a.y);
+                    let v = (d.x - a.x) * (b.y - a.y) - (b.x - a.x) * (d.y - a.y);
+                    let w = (a.x - c.x) * (d.y - c.y) - (d.x - c.x) * (a.y - c.y);
+                    let z = (b.x - c.x) * (d.y - c.y) - (d.x - c.x) * (b.y - c.y);
+                    return (u * v === 0 && w * z === 0);
+                }
+                isIntersect(l) {
+                    return LineSegment.isIntersect(this, l);
+                }
+                get angle() {
+                    return Math.atan2(this.end.y - this.start.y, this.end.x - this.start.x);
+                }
+                static angleBetween(a, b) {
+                    let v1 = a.end.x - a.start.x;
+                    let v2 = a.end.y - a.start.y;
+                    let v3 = b.end.x - b.start.x;
+                    let v4 = b.end.y - b.start.y;
+                    let fAngle0 = (v1 * v3 + v2 * v4) / ((Math.sqrt(v1 * v1 + v2 * v2)) * (Math.sqrt(v3 * v3 + v4 * v4)));
+                    let fAngle = Math.acos(fAngle0);
+                    if (fAngle >= PI_HALF)
+                        fAngle = Math.PI - fAngle;
+                    return fAngle;
+                }
+                angleBetween(a) {
+                    return LineSegment.angleBetween(this, a);
+                }
+                get box() {
+                    let r = new Rectangle(this.start.x, this.start.y, this.end.x - this.start.x, this.end.y - this.start.y);
+                    r.normalize();
+                    return r;
+                }
+                get center() {
+                    return new Point(this.start.x + ((this.end.x - this.start.x) / 2), this.start.y + ((this.end.y - this.start.y) / 2));
+                }
+            }
+            twodim.LineSegment = LineSegment;
+            class Circle {
+                constructor(x, y, radius) {
+                    if (x instanceof Point) {
+                        this.center = x.clone();
+                        this.radius = y;
+                    }
+                    else if (typeof (x) === "number") {
+                        this.center = new Point(x, y);
+                        this.radius = radius;
+                    }
+                    else {
+                        this.center = new Point();
+                        this.radius = 0;
+                    }
+                }
+                clone() {
+                    return new Circle(this.center, this.radius);
+                }
+                isInside(point) {
+                    return Point.distance(this.center, point) < this.radius;
+                }
+                isBoundary(point) {
+                    return Point.distance(this.center, point) === this.radius;
+                }
+                isInsideOrBoundary(point) {
+                    return Point.distance(this.center, point) <= this.radius;
+                }
+                static isIntersect(a, b) {
+                    let d = Point.distance(a.center, b.center);
+                    return d < a.radius || d < b.radius;
+                }
+                isIntersect(a) {
+                    return Circle.isIntersect(this, a);
+                }
+                get box() {
+                    let s = this.radius + this.radius;
+                    return new Rectangle(this.center.x - this.radius, this.center.y - this.radius, s, s);
+                }
+            }
+            twodim.Circle = Circle;
+            class Polygon {
+                constructor(vertexs) {
+                    let vs = new Array();
+                    if (vertexs) {
+                        for (let i = 0; i < vertexs.length; ++i) {
+                            vs.push(vertexs[i].clone());
+                        }
+                    }
+                    this.mVertexs = vs;
+                    this.closed = true;
+                }
+                clone() {
+                    return new Polygon(this.mVertexs);
+                }
+                get vertexs() {
+                    return this.mVertexs;
+                }
+                static isBoundary(point, p) {
+                    let count = p.mVertexs.length - 1;
+                    for (let i = 0; i < count; ++i) {
+                        if (LineSegment.isInLineEx(point, p.mVertexs[i], p.mVertexs[i + 1]))
+                            return true;
+                    }
+                    return false;
+                }
+                isBoundary(point) {
+                    return Polygon.isBoundary(point, this);
+                }
+                static isInPolygon(point, p) {
+                    let x = point.x;
+                    let y = point.y;
+                    let vs = p.mVertexs;
+                    let count = vs.length;
+                    let j = count - 1;
+                    let isin = false;
+                    for (let i = 0; i < count; i++) {
+                        let vi = vs[i];
+                        let vj = vs[j];
+                        if ((vi.y < y && vj.y >= y || vj.y < y && vi.y >= y) && (vi.x <= x || vj.x <= x)) {
+                            if (vi.x + (y - vi.y) / (vj.y - vi.y) * (vj.x - vi.x) < x) {
+                                isin = !isin;
+                            }
+                        }
+                        j = i;
+                    }
+                    return isin;
+                }
+                isInPolygon(point, p) {
+                    return Polygon.isInPolygon(point, this);
+                }
+                appendVertex(...points) {
+                    points.forEach((point) => {
+                        this.mVertexs.push(point.clone());
+                    });
+                }
+                popVertex() {
+                    return this.mVertexs.pop();
+                }
+                insertVertex(index, ...points) {
+                    this.mVertexs.splice(index, 0, ...points);
+                }
+                removeVertex(index, count) {
+                    this.mVertexs.splice(index, count);
+                }
+                get gravity() {
+                    let area = 0.0;
+                    let gx = 0.0;
+                    let gy = 0.0;
+                    let count = this.mVertexs.length;
+                    for (let i = 1; i <= count; i++) {
+                        let vix = this.mVertexs[(i % count)].x;
+                        let viy = this.mVertexs[(i % count)].y;
+                        let nextx = this.mVertexs[(i - 1)].x;
+                        let nexty = this.mVertexs[(i - 1)].y;
+                        let temp = (vix * nexty - viy * nextx) / 2.0;
+                        area += temp;
+                        gx += temp * (vix + nextx) / 3.0;
+                        gy += temp * (viy + nexty) / 3.0;
+                    }
+                    gx = gx / area;
+                    gy = gy / area;
+                    return new Point(gx, gy);
+                }
+                get box() {
+                    let vs = this.mVertexs;
+                    if (vs.length == 0)
+                        return new Rectangle();
+                    let left = vs[0].x;
+                    let top = vs[0].y;
+                    let right = left;
+                    let bottom = top;
+                    let count = vs.length;
+                    for (let i = 1; i <= count; i++) {
+                        let p = vs[i];
+                        if (left > p.x)
+                            left = p.x;
+                        if (top > p.y)
+                            top = p.y;
+                        if (right < p.x)
+                            right = p.x;
+                        if (bottom < p.y)
+                            bottom = p.y;
+                    }
+                    return new Rectangle(left, top, right - left, bottom - top);
+                }
+                get center() {
+                    return this.box.center;
+                }
+            }
+            twodim.Polygon = Polygon;
+            class Vector {
+                constructor(x, y) {
+                    this.x = x || 0;
+                    this.y = y || 0;
+                }
+                clone() {
+                    return new Vector(this.x, this.y);
+                }
+                setV(x, y) {
+                    if (x instanceof Vector) {
+                        this.x = x.x;
+                        this.y = x.y;
+                    }
+                    else {
+                        this.x = x;
+                        this.y = y || 0;
+                    }
+                }
+                static add(a, b) {
+                    return new Vector(a.x + b.x, a.y + b.y);
+                }
+                add(v) {
+                    this.x += v.x;
+                    this.y += v.y;
+                }
+                static sub(a, b) {
+                    return new Vector(a.x - b.x, a.y - b.y);
+                }
+                sub(v) {
+                    this.x -= v.x;
+                    this.y -= v.y;
+                }
+                static mul(v, scalar) {
+                    return new Vector(v.x * scalar, v.y * scalar);
+                }
+                mul(v) {
+                    this.x *= v;
+                    this.y *= v;
+                }
+                static div(v, scalar) {
+                    return new Vector(v.x / scalar, v.y / scalar);
+                }
+                div(v) {
+                    this.x /= v;
+                    this.y /= v;
+                }
+                static cross(a, b) {
+                    return a.x * b.y - a.y * b.x;
+                }
+                cross(v) {
+                    return this.x * v.y - this.y * v.x;
+                }
+                static dot(a, b) {
+                    return a.x * b.y + a.y * b.x;
+                }
+                dot(v) {
+                    return this.x * v.y + this.y * v.x;
+                }
+                static inner(a, b) {
+                    return a.x * b.x + a.y * b.y;
+                }
+                inner(v) {
+                    return this.x * v.x + this.y * v.y;
+                }
+                epointual(v) {
+                    return this.x == v.x && this.y == v.y;
+                }
+                static epointual(a, b) {
+                    return a.x == b.x && a.y == b.y;
+                }
+                normalize() {
+                    let l = this.length;
+                    this.div(l);
+                }
+                zero() {
+                    this.x = 0;
+                    this.y = 0;
+                }
+                reverse() {
+                    this.x = -this.x;
+                    this.y = -this.y;
+                }
+                rotate(angle) {
+                    let cosValue = Math.cos(angle);
+                    let sinValue = Math.sin(angle);
+                    let x = this.x;
+                    let y = this.y;
+                    this.x = x * cosValue - y * sinValue;
+                    this.y = x * sinValue + y * cosValue;
+                }
+                static angleBetween(a, b) {
+                    return Math.atan2(Vector.cross(a, b), Vector.dot(a, b));
+                }
+                static perpendicular(a, b) {
+                    return (!a.isZero) && (!b.isZero) && Vector.inner(a, b) === 0;
+                }
+                static isColinear(a, b) {
+                    return a.slope === b.slope;
+                }
+                isColinear(v) {
+                    return this.slope === this.slope;
+                }
+                get isZero() {
+                    return this.x === 0 && this.x === this.y;
+                }
+                get slope() {
+                    return this.y / this.x;
+                }
+                get angle() {
+                    return Math.atan2(this.y, this.x);
+                }
+                get length() {
+                    return Math.sqrt(this.lengthQ);
+                }
+                set length(value) {
+                    let a = this.angle;
+                    this.x = Math.cos(a) * value;
+                    this.y = Math.sin(a) * value;
+                }
+                get normalized() {
+                    return this.lengthQ == 1;
+                }
+                get lengthQ() {
+                    return this.x * this.x + this.y * this.y;
+                }
+            }
+            twodim.Vector = Vector;
+        })(twodim = geometry.twodim || (geometry.twodim = {}));
+    })(geometry = ftk.geometry || (ftk.geometry = {}));
 })(ftk || (ftk = {}));
 /// <reference path="../particleanimation.ts" />
 var ftk;

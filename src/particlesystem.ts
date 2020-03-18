@@ -1,8 +1,7 @@
 /// <reference path="./sprite.ts" />
 
 namespace ftk {
-    type Point = geometry.twodim.Point;
-    export class ParticleAnimation extends Sprite {
+    export class ParticleSprite extends Sprite {
         private mParticles: Array<Particle>;
         private mTicks: number;
         private mLastUpdateTime: number;
@@ -81,9 +80,9 @@ namespace ftk {
         public gravity: number;
         public drag: number;
         public active: boolean;
-        private mPA: ParticleAnimation;
+        private mPA: ParticleSprite;
 
-        constructor(pa: ParticleAnimation, x: number, y: number) {
+        constructor(pa: ParticleSprite, x: number, y: number) {
             this.mPA = pa;
             this.x = x;
             this.y = y;
@@ -97,7 +96,7 @@ namespace ftk {
             this.active = true;
         }
 
-        public get PA(): ParticleAnimation {
+        public get PA(): ParticleSprite {
             return this.mPA;
         }
         public Update(): void {
@@ -124,7 +123,7 @@ namespace ftk {
             } while (s > 1);
 
             var scale = size / Math.sqrt(s);
-            return new geometry.twodim.Point(
+            return new Point(
                 x * scale,
                 y * scale
             );

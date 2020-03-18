@@ -15,9 +15,9 @@ namespace app {
         constructor(stage: ftk.Stage) {
             super();
             let image = ftk.Engine.R.GetImage("res/images/desktop.jpg");
-            if(image)
+            if (image)
                 this.BackgroundImage = image;
-                this.RepeatStyle = "repeat";
+            this.RepeatStyle = "repeat";
             this.EventTransparent = false;
         }
     }
@@ -29,9 +29,19 @@ namespace app {
             let ready = new ftk.ui.ImageButton(R.GetImage("res/images/ready.png"), "Game.Start.Button");
             ready.DownResource = R.GetImage("res/images/ready-down.png");
             ready.HoverResource = R.GetImage("res/images/ready-hover.png");
-            ready.Position = new ftk.geometry.twodim.Point(280,510);
+            ready.Position = new ftk.Point(280, 200);
             this.AddNode(ready);
 
+            let ani = new ftk.KeyframeAnimation(true, true);
+            ani.AddFrame(new ftk.AngleAnimation(0, Math.PI * 2, 1000, true, true));
+            ani.AddFrame(new ftk.OpacityAnimation(0, 1, 3000, true, true));
+            ani.AddFrame(new ftk.BoxAnimation(
+                new ftk.Rectangle(280, 200, 50, 50),
+                new ftk.Rectangle(200, 150, 300, 100),
+                3000,
+                true,
+                true));
+            ready.AddAnimation(ani);
             /*let p:ftk.ui.ProgressBar = new ftk.ui.CircularProgressBar(200, 200, 100, 100);
             p.Value = 35;
             this.AddNode(p);
@@ -47,8 +57,8 @@ namespace app {
             super();
             let R = ftk.Engine.R;
             let fireworks = new ftk.particles.FireworkAnimation();
-            fireworks.Position = new ftk.geometry.twodim.Point(0, 0);
-            fireworks.Resize(stage.Width,stage.Height);
+            fireworks.Position = new ftk.Point(0, 0);
+            fireworks.Resize(stage.Width, stage.Height);
             this.AddNode(fireworks);
         }
     }
@@ -61,49 +71,49 @@ namespace app {
             ftk.Engine.Root.AddLayer(new BackgroundLayer(ftk.Engine.Root));
             ftk.Engine.Root.AddLayer(new StartLayer());
             ftk.Engine.Root.AddLayer(this.mEffectsLayer);
-            
-            ftk.Engine.addMouseListener("mouseup" ,(ev) => {
+
+            ftk.Engine.addMouseListener("mouseup", (ev) => {
                 console.log(ev.Target);
                 if (ev.Target) {
                     if (ev.Target.Id === "Game.Start.Button") {
                         this.mEffectsLayer.Visible = !this.mEffectsLayer.Visible;
                         let a = ftk.Engine.R.GetAudio("res/audios/bk.mp3");
-                        if(this.mEffectsLayer.Visible){
+                        if (this.mEffectsLayer.Visible) {
                             //video.Play();
 
                             //if(a)a.Audio.play();
-                        }else{
+                        } else {
                             //if(a)a.Audio.pause();
                         }
                     }
                 }
             });
 
-            ftk.Engine.addEngineListener("fault" ,(ev) => {
+            ftk.Engine.addEngineListener("fault", (ev) => {
                 this.OnGameFault(ev.Args);
             });
         }
-        private OnGameFault(reason:string):void{
-            console.error("game fault:",reason);
+        private OnGameFault(reason: string): void {
+            console.error("game fault:", reason);
         }
-        public StartUp():void{
+        public StartUp(): void {
             console.log("game StartUp!");
         }
     }
 
-    export function Main(canvas:HTMLCanvasElement){
+    export function Main(canvas: HTMLCanvasElement) {
         ftk.LibrarySetup({
-            canvas:canvas,
-            HideLoading:false,
-            HideLogo:false
+            canvas: canvas,
+            HideLoading: false,
+            HideLogo: false
         });
 
         PrepareResources();
-        ftk.Engine.addEngineListener("loading",(ev)=>{
+        ftk.Engine.addEngineListener("loading", (ev) => {
             let progress = ev.Args as number;
             console.log(progress);
         });
-        ftk.Engine.addEngineListener("ready",(ev)=>{
+        ftk.Engine.addEngineListener("ready", (ev) => {
             console.log("program start.");
             let game = new DemoGame();
             game.StartUp();

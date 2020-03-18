@@ -1,11 +1,11 @@
-/// <reference path="../particleanimation.ts" />
+/// <reference path="../particlesystem.ts" />
 /// <reference path="../color.ts" />
 
 namespace ftk.particles {
     export class SpeedParticle extends Particle {
         public color: Color;
         public size:number;
-        constructor(pa: ParticleAnimation, x: number, y: number,color: Color) {
+        constructor(pa: ParticleSprite, x: number, y: number,color: Color) {
             super(pa, x, y);
             this.drag = 0;
             this.color = color;

@@ -11,10 +11,13 @@ namespace ftk {
             else
                 this.mImage = new ImageResource("");
             if (w && h) {
-                this.Resize(w,h);
+                this.Resize(w, h);
             } else {
                 this.Resize(this.mImage.Image.naturalWidth, this.mImage.Image.naturalHeight);
             }
+
+            let size = this.Box.size;
+            this.BasePoint = new Point(size.cx / 2, size.cy / 2);
         }
 
         public get Resource(): ImageResource {

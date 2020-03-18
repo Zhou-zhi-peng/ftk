@@ -1,4 +1,4 @@
-namespace ftk.geometry.twodim {
+namespace ftk {
     const PI_HALF = (Math.PI / 2);
 
     export class Point implements IClone<Point> {
@@ -41,6 +41,21 @@ namespace ftk.geometry.twodim {
         public distance(a: Point) {
             return Point.distance(this, a);
         }
+
+        public static rotate(pt: Point, angle: number, basept: Point): Point {
+            let p = pt.clone();
+            p.rotate(angle, basept);
+            return p;
+        }
+
+        public rotate(angle: number, basept: Point): void {
+            let cosValue = Math.cos(angle);
+            let sinValue = Math.sin(angle);
+            let x = this.x - basept.x;
+            let y = this.y - basept.y;
+            this.x = basept.x + (x * cosValue - y * sinValue);
+            this.y = basept.y + (x * sinValue + y * cosValue);
+        }
     }
 
     export class Size implements IClone<Size> {
@@ -64,15 +79,15 @@ namespace ftk.geometry.twodim {
         public w: number;
         public h: number;
         constructor();
-        constructor(point:Point,size:Size);
+        constructor(point: Point, size: Size);
         constructor(x: number, y: number, w: number, h: number);
         constructor(x?: any, y?: any, w?: any, h?: any) {
-            if(x instanceof Point){
+            if (x instanceof Point) {
                 this.x = x.x;
                 this.y = x.y;
                 this.w = y.cx;
                 this.h = y.cy;
-            }else {
+            } else {
                 this.x = x || 0;
                 this.y = y || 0;
                 this.w = w || 0;
@@ -345,13 +360,13 @@ namespace ftk.geometry.twodim {
             return new LineSegment(this.start, this.end);
         }
 
-        public static isInLineEx(point: Point,lstart:Point,lend:Point):boolean{
+        public static isInLineEx(point: Point, lstart: Point, lend: Point): boolean {
             return (((point.x - lstart.x) * (lstart.y - lend.y)) == ((lstart.x - lend.x) * (point.y - lstart.y))
                 && (point.x >= Math.min(lstart.x, lend.x) && point.x <= Math.max(lstart.x, lend.x))
                 && ((point.y >= Math.min(lstart.y, lend.y)) && (point.y <= Math.max(lstart.y, lend.y))));
         }
 
-        public static isInLine(point: Point,line:LineSegment):boolean{
+        public static isInLine(point: Point, line: LineSegment): boolean {
             return LineSegment.isInLineEx(point, line.start, line.end);
         }
 
@@ -406,35 +421,35 @@ namespace ftk.geometry.twodim {
         public get box(): Rectangle {
             let r = new Rectangle(
                 this.start.x,
-                this.start.y, 
+                this.start.y,
                 this.end.x - this.start.x,
                 this.end.y - this.start.y);
             r.normalize();
             return r;
         }
 
-        public get center():Point{
+        public get center(): Point {
             return new Point(
-                this.start.x + ((this.end.x - this.start.x)/2),
-                this.start.y + ((this.end.y - this.start.y)/2)
+                this.start.x + ((this.end.x - this.start.x) / 2),
+                this.start.y + ((this.end.y - this.start.y) / 2)
             );
         }
     }
 
     export class Circle implements IClone<Circle>{
-        public center:Point;
-        public radius:number;
+        public center: Point;
+        public radius: number;
         constructor();
-        constructor(c:Point,radius:number);
-        constructor(x:number,y:number,radius:number);
-        constructor(x?:any,y?:any,radius?:any){
-            if(x instanceof Point){
+        constructor(c: Point, radius: number);
+        constructor(x: number, y: number, radius: number);
+        constructor(x?: any, y?: any, radius?: any) {
+            if (x instanceof Point) {
                 this.center = x.clone();
                 this.radius = y;
-            }else if(typeof(x) === "number"){
+            } else if (typeof (x) === "number") {
                 this.center = new Point(x, y);
                 this.radius = radius;
-            }else{
+            } else {
                 this.center = new Point();
                 this.radius = 0;
             }
@@ -456,7 +471,7 @@ namespace ftk.geometry.twodim {
             return Point.distance(this.center, point) <= this.radius;
         }
 
-        public static isIntersect(a: Circle, b: Circle):boolean{
+        public static isIntersect(a: Circle, b: Circle): boolean {
             let d = Point.distance(a.center, b.center);
             return d < a.radius || d < b.radius;
         }
@@ -468,8 +483,8 @@ namespace ftk.geometry.twodim {
         public get box(): Rectangle {
             let s = this.radius + this.radius;
             return new Rectangle(
-                this.center.x-this.radius,
-                this.center.y-this.radius, 
+                this.center.x - this.radius,
+                this.center.y - this.radius,
                 s,
                 s);
         }
@@ -498,9 +513,9 @@ namespace ftk.geometry.twodim {
         }
 
         public static isBoundary(point: Point, p: Polygon): boolean {
-            let count = p.mVertexs.length-1;
+            let count = p.mVertexs.length - 1;
             for (let i = 0; i < count; ++i) {
-                if(LineSegment.isInLineEx(point, p.mVertexs[i],p.mVertexs[i+1]))
+                if (LineSegment.isInLineEx(point, p.mVertexs[i], p.mVertexs[i + 1]))
                     return true;
             }
             return false;
@@ -510,71 +525,71 @@ namespace ftk.geometry.twodim {
             return Polygon.isBoundary(point, this);
         }
 
-        public static isInPolygon(point:Point, p: Polygon):boolean{
+        public static isInPolygon(point: Point, p: Polygon): boolean {
             let x = point.x;
             let y = point.y;
             let vs = p.mVertexs;
             let count = vs.length;
-            let j=count-1 ;
+            let j = count - 1;
             let isin = false;
-            for (let i=0; i< count; i++) {
+            for (let i = 0; i < count; i++) {
                 let vi = vs[i];
                 let vj = vs[j];
-                if((vi.y< y && vj.y>=y || vj.y<y && vi.y>=y) &&(vi.x<=x || vj.x<=x)) {
-                    if(vi.x+(y-vi.y)/(vj.y-vi.y)*(vj.x-vi.x)<x) {
-                        isin=!isin;
+                if ((vi.y < y && vj.y >= y || vj.y < y && vi.y >= y) && (vi.x <= x || vj.x <= x)) {
+                    if (vi.x + (y - vi.y) / (vj.y - vi.y) * (vj.x - vi.x) < x) {
+                        isin = !isin;
                     }
                 }
-                j=i;
+                j = i;
             }
-            return isin; 
+            return isin;
         }
 
-        public isInPolygon(point:Point, p: Polygon):boolean{
+        public isInPolygon(point: Point, p: Polygon): boolean {
             return Polygon.isInPolygon(point, this);
         }
 
-        public appendVertex(... points: Point[]):void { 
-            points.forEach((point)=>{
+        public appendVertex(...points: Point[]): void {
+            points.forEach((point) => {
                 this.mVertexs.push(point.clone());
             });
         }
 
-        public popVertex():Point|undefined { 
+        public popVertex(): Point | undefined {
             return this.mVertexs.pop();
         }
 
-        public insertVertex(index: number, ... points: Point[]): void {
-            this.mVertexs.splice(index,0, ... points);
+        public insertVertex(index: number, ...points: Point[]): void {
+            this.mVertexs.splice(index, 0, ...points);
         }
 
         public removeVertex(index: number, count: number): void {
             this.mVertexs.splice(index, count);
         }
 
-        public get gravity():Point{
-            let area = 0.0;  
+        public get gravity(): Point {
+            let area = 0.0;
             let gx = 0.0;
             let gy = 0.0;
             let count = this.mVertexs.length;
-            for (let i = 1; i <= count; i++) {  
-                let vix = this.mVertexs[(i % count)].x;  
-                let viy = this.mVertexs[(i % count)].y;  
-                let nextx = this.mVertexs[(i - 1)].x;  
-                let nexty = this.mVertexs[(i - 1)].y;  
-                let temp = (vix * nexty - viy * nextx) / 2.0;  
-                area += temp;  
-                gx += temp * (vix + nextx) / 3.0;  
-                gy += temp * (viy + nexty) / 3.0;  
-            }  
-            gx = gx / area;  
-            gy = gy / area;  
-            return new Point(gx, gy);  
+            for (let i = 1; i <= count; i++) {
+                let vix = this.mVertexs[(i % count)].x;
+                let viy = this.mVertexs[(i % count)].y;
+                let nextx = this.mVertexs[(i - 1)].x;
+                let nexty = this.mVertexs[(i - 1)].y;
+                let temp = (vix * nexty - viy * nextx) / 2.0;
+                area += temp;
+                gx += temp * (vix + nextx) / 3.0;
+                gy += temp * (viy + nexty) / 3.0;
+            }
+            gx = gx / area;
+            gy = gy / area;
+            return new Point(gx, gy);
         }
 
         public get box(): Rectangle {
             let vs = this.mVertexs;
-            if(vs.length==0)
+            if (vs.length == 0)
                 return new Rectangle();
             let left = vs[0].x;
             let top = vs[0].y;
@@ -583,19 +598,19 @@ namespace ftk.geometry.twodim {
             let count = vs.length;
             for (let i = 1; i <= count; i++) {
                 let p = vs[i];
-                if(left>p.x)
+                if (left > p.x)
                     left = p.x;
-                if(top>p.y)
+                if (top > p.y)
                     top = p.y;
-                if(right<p.x)
+                if (right < p.x)
                     right = p.x;
-                if(bottom<p.y)
+                if (bottom < p.y)
                     bottom = p.y;
             }
             return new Rectangle(left, top, right - left, bottom - top);
         }
 
-        public get center():Point{
+        public get center(): Point {
             return this.box.center;
         }
     }

@@ -1,11 +1,11 @@
-/// <reference path="../particleanimation.ts" />
+/// <reference path="../particlesystem.ts" />
 
 namespace ftk.particles {
     export class FireworkSparkParticle extends Particle {
         public hue: number;
         public lifeMax: number;
         public color: string;
-        constructor(pa: ParticleAnimation, x: number, y: number) {
+        constructor(pa: ParticleSprite, x: number, y: number) {
             super(pa, x, y);
             this.hue = Math.floor(Math.random() * 360);
             this.lifeMax = this.life;
@@ -37,7 +37,7 @@ namespace ftk.particles {
     }
 
     export class FireworkFlameParticle extends Particle {
-        constructor(pa: ParticleAnimation, x: number, y: number) {
+        constructor(pa: ParticleSprite, x: number, y: number) {
             super(pa, x, y);
             this.life *= 2;
         }
@@ -56,7 +56,7 @@ namespace ftk.particles {
 
     export class FireworkParticle extends Particle {
         public lifeMax: number;
-        constructor(pa: ParticleAnimation, x: number, y: number) {
+        constructor(pa: ParticleSprite, x: number, y: number) {
             super(pa, x, y);
             this.lifeMax = 5;
             this.life = this.lifeMax;
@@ -77,7 +77,7 @@ namespace ftk.particles {
         }
     }
 
-    export class FireworkAnimation extends ParticleAnimation {
+    export class FireworkAnimation extends ParticleSprite {
         protected OnUpdate(): boolean {
             if ((this.Ticks % 40) === 0) {
                 var fw = new FireworkParticle(this, Math.random() * window.innerWidth, Math.random() * window.innerHeight * 0.75);

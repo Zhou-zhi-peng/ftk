@@ -1,4 +1,4 @@
-/// <reference path="../particleanimation.ts" />
+/// <reference path="../particlesystem.ts" />
 /// <reference path="../particles/seed.ts" />
 
 namespace ftk.ui {
@@ -9,7 +9,7 @@ namespace ftk.ui {
 
         constructor(x: number, y: number, w: number, h: number, id?: string) {
             super(id);
-            this.Position = new geometry.twodim.Point(x, y);
+            this.Position = new Point(x, y);
             this.Resize(w, h);
             this.mValue = 0;
             this.mMin = 0;

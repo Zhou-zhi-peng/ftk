@@ -545,7 +545,7 @@ namespace ftk {
             return isin;
         }
 
-        public isInPolygon(point: Point, p: Polygon): boolean {
+        public isInPolygon(point: Point): boolean {
             return Polygon.isInPolygon(point, this);
         }
 
@@ -744,7 +744,7 @@ namespace ftk {
             return a.slope === b.slope;
         }
 
-        public isColinear(v: Vector): boolean {
+        public isColinear(): boolean {
             return this.slope === this.slope;
         }
 

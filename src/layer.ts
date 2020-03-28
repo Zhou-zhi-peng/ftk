@@ -4,7 +4,7 @@
 
 namespace ftk {
     export class Layer implements IObjectNode {
-        private mNodes: Array<IObjectNode>;
+        private mNodes: IObjectNode[];
         private mVisible: boolean;
         private mEventTransparent: boolean;
         private mID = ftk.utility.GenerateIDString(32);
@@ -58,9 +58,9 @@ namespace ftk {
         }
 
         public GetNode(id: string): IObjectNode | undefined {
-            for (let i = 0; i < this.mNodes.length; ++i) {
-                if (this.mNodes[i].Id === id) {
-                    return this.mNodes[i];
+            for (let n of this.mNodes) {
+                if (n.Id === id) {
+                    return n;
                 }
             }
             return undefined;
@@ -75,8 +75,9 @@ namespace ftk {
         }
 
         public Rander(rc: CanvasRenderingContext2D): void {
-            if (!this.Visible)
+            if (!this.Visible) {
                 return;
+            }
 
             for (let i = this.mNodes.length - 1; i >= 0; --i) {
                 this.mNodes[i].Rander(rc);
@@ -89,11 +90,11 @@ namespace ftk {
                     ev.Target = this;
                     ev.StopPropagation = true;
                 }
-                let values = this.mNodes
-                for (let i = 0; i < values.length; ++i) {
-                    values[i].DispatchTouchEvent(ev, forced);
-                    if (ev.StopPropagation)
+                for (let n of this.mNodes) {
+                    n.DispatchTouchEvent(ev, forced);
+                    if (ev.StopPropagation) {
                         break;
+                    }
                 }
             }
         }
@@ -103,11 +104,11 @@ namespace ftk {
                     ev.Target = this;
                     ev.StopPropagation = true;
                 }
-                let values = this.mNodes
-                for (let i = 0; i < values.length; ++i) {
-                    values[i].DispatchMouseEvent(ev, forced);
-                    if (ev.StopPropagation)
+                for (let n of this.mNodes) {
+                    n.DispatchMouseEvent(ev, forced);
+                    if (ev.StopPropagation) {
                         break;
+                    }
                 }
             }
         }
@@ -117,20 +118,20 @@ namespace ftk {
                     ev.Target = this;
                     ev.StopPropagation = true;
                 }
-                let values = this.mNodes
-                for (let i = 0; i < values.length; ++i) {
-                    values[i].DispatchKeyboardEvent(ev, forced);
-                    if (ev.StopPropagation)
+                for (let n of this.mNodes) {
+                    n.DispatchKeyboardEvent(ev, forced);
+                    if (ev.StopPropagation) {
                         break;
+                    }
                 }
             }
         }
         public DispatchNoticeEvent(ev: NoticeEvent, forced: boolean): void {
-            let values = this.mNodes
-            for (let i = 0; i < values.length; ++i) {
-                values[i].DispatchNoticeEvent(ev, forced);
-                if (ev.StopPropagation)
+            for (let n of this.mNodes) {
+                n.DispatchNoticeEvent(ev, forced);
+                if (ev.StopPropagation) {
                     break;
+                }
             }
         }
         public Update(timestamp: number): void {
@@ -142,9 +143,9 @@ namespace ftk {
         }
     }
 
-    export class ColoredLayer extends Layer{
-        private mBackgroundColor:Color;
-        constructor(){
+    export class ColoredLayer extends Layer {
+        private mBackgroundColor: Color;
+        constructor() {
             super();
             this.mBackgroundColor = new Color("#00F");
         }
@@ -164,11 +165,11 @@ namespace ftk {
         }
     }
 
-    export type BackgroundImageRepeatStyle = "repeat"|"center"|"stretch"|"fit-stretch"|"none";
-    export class BackgroundImageLayer extends Layer{
-        private mBackgroundImage:ImageResource;
-        private mRepeatStyle:BackgroundImageRepeatStyle;
-        constructor(){
+    export type BackgroundImageRepeatStyle = "repeat" | "center" | "stretch" | "fit-stretch" | "none";
+    export class BackgroundImageLayer extends Layer {
+        private mBackgroundImage: ImageResource;
+        private mRepeatStyle: BackgroundImageRepeatStyle;
+        constructor() {
             super();
             this.mBackgroundImage = new ImageResource("");
             this.mRepeatStyle = "stretch";
@@ -193,7 +194,7 @@ namespace ftk {
         public Rander(rc: CanvasRenderingContext2D): void {
             let image = this.BackgroundImage.Image;
             let style = this.RepeatStyle;
-            if(style === "stretch"){
+            if (style === "stretch") {
                 rc.drawImage(
                     image,
                     0,
@@ -204,14 +205,14 @@ namespace ftk {
                     0,
                     rc.canvas.width,
                     rc.canvas.height);
-            }else if(style === "fit-stretch"){
+            } else if (style === "fit-stretch") {
                 let fitRatioX = image.naturalWidth / rc.canvas.width;
                 let fitRatioY = image.naturalHeight / rc.canvas.height;
                 let fitratio = Math.min(fitRatioX, fitRatioY);
-                let w = image.naturalWidth*fitratio;
-                let h = image.naturalHeight*fitratio;
-                let x = (rc.canvas.width-w)/2;
-                let y = (rc.canvas.height-h)/2;
+                let w = image.naturalWidth * fitratio;
+                let h = image.naturalHeight * fitratio;
+                let x = (rc.canvas.width - w) / 2;
+                let y = (rc.canvas.height - h) / 2;
 
                 rc.drawImage(
                     image,
@@ -219,7 +220,7 @@ namespace ftk {
                     image.naturalWidth,
                     image.naturalHeight,
                     x, y, w, h);
-            }else if(style === "center"){
+            } else if (style === "center") {
                 let x = (rc.canvas.width - image.naturalWidth) / 2;
                 let y = (rc.canvas.height - image.naturalHeight) / 2;
                 rc.drawImage(
@@ -232,9 +233,7 @@ namespace ftk {
                     y,
                     image.naturalWidth,
                     image.naturalHeight);
-            }else if(style === "none"){
-                let x = (rc.canvas.width - image.naturalWidth) / 2;
-                let y = (rc.canvas.height - image.naturalHeight) / 2;
+            } else if (style === "none") {
                 rc.drawImage(
                     image,
                     0,
@@ -245,7 +244,7 @@ namespace ftk {
                     0,
                     image.naturalWidth,
                     image.naturalHeight);
-            }else{
+            } else {
                 let pattern = rc.createPattern(image, 'repeat') as CanvasPattern;
                 let oldfs = rc.fillStyle;
                 rc.fillStyle = pattern;

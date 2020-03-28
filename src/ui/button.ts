@@ -36,7 +36,7 @@ namespace ftk.ui {
             this.mDownImage = value;
         }
 
-        protected OnDispatchMouseEvent(ev: GMouseEvent, forced: boolean): void {
+        protected OnDispatchMouseEvent(ev: GMouseEvent, _forced: boolean): void {
             switch (ev.InputType) {
                 case InputEventType.MouseEnter:
                     if (this.mHoverImage && (!this.mPressState))

@@ -172,20 +172,20 @@ namespace ftk {
             }
         }
         protected abstract OnRander(rc: CanvasRenderingContext2D): void;
-        protected OnUpdate(timestamp: number): void {
+        protected OnUpdate(_timestamp: number): void {
 
         }
 
-        protected OnDispatchTouchEvent(ev: GTouchEvent, forced: boolean): void {
+        protected OnDispatchTouchEvent(_ev: GTouchEvent, _forced: boolean): void {
         }
 
-        protected OnDispatchMouseEvent(ev: GMouseEvent, forced: boolean): void {
+        protected OnDispatchMouseEvent(_ev: GMouseEvent, _forced: boolean): void {
         }
 
-        protected OnDispatchKeyboardEvent(ev: GKeyboardEvent, forced: boolean): void {
+        protected OnDispatchKeyboardEvent(_ev: GKeyboardEvent, _forced: boolean): void {
         }
 
-        protected OnDispatchNoticeEvent(ev: NoticeEvent, forced: boolean): void {
+        protected OnDispatchNoticeEvent(_ev: NoticeEvent, _forced: boolean): void {
         }
 
         protected GetMouseEventPoint(ev: { x: number, y: number }) {

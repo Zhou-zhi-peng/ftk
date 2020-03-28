@@ -9,7 +9,7 @@ namespace ftk {
         Update(timestamp: number): void;
     }
 
-    export abstract class GEvent{
+    export abstract class GEvent {
         public readonly Source: any;
         public Target: IObjectNode | null;
         public StopPropagation: boolean;
@@ -22,20 +22,20 @@ namespace ftk {
         }
     }
 
-    export class EngineEvent extends GEvent{
-        public Args:any;
-        constructor(source: any,args:any){
+    export class EngineEvent extends GEvent {
+        public Args: any;
+        constructor(source: any, args: any) {
             super(source);
             this.Args = args;
         }
     }
 
-    export class NoticeEvent extends GEvent{
-        public readonly Args:any;
-        public readonly Broadcast:boolean;
-        public readonly Name:string;
-        public Result:any;
-        constructor(source: any,name:string,broadcast:boolean, args:any){
+    export class NoticeEvent extends GEvent {
+        public readonly Args: any;
+        public readonly Broadcast: boolean;
+        public readonly Name: string;
+        public Result: any;
+        constructor(source: any, name: string, broadcast: boolean, args: any) {
             super(source);
             this.Name = name;
             this.Broadcast = broadcast;
@@ -55,8 +55,8 @@ namespace ftk {
         KeyDown,
         KeyUp,
     }
-    
-    export interface GTouchPoint {
+
+    export interface ITouchPoint {
         readonly identifier: number;
         readonly x: number;
         readonly y: number;
@@ -93,16 +93,16 @@ namespace ftk {
         }
     }
     export class GTouchEvent extends GInputEvent {
-        public readonly Touches: IReadOnlyArray<GTouchPoint>;
-        public readonly ChangedTouches: IReadOnlyArray<GTouchPoint>;
+        public readonly Touches: IReadOnlyArray<ITouchPoint>;
+        public readonly ChangedTouches: IReadOnlyArray<ITouchPoint>;
         constructor(
             source: any,
             eventType: InputEventType,
             altKey: boolean,
             ctrlKey: boolean,
             shiftKey: boolean,
-            touches: IReadOnlyArray<GTouchPoint>,
-            changedTouches: IReadOnlyArray<GTouchPoint>
+            touches: IReadOnlyArray<ITouchPoint>,
+            changedTouches: IReadOnlyArray<ITouchPoint>
         ) {
             super(
                 source,

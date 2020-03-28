@@ -14,9 +14,9 @@
         {
             "label": "压缩目标文件",
             "type": "shell",
-            "command": "uglifyjs js/ftk.js -m -c -o js/ftk.min.js",
+            "command": "uglifyjs output/ftk.js -m -c -o output/ftk.min.js",
             "windows": {
-                "command": "uglifyjs js/ftk.js -m -c -o js/ftk.min.js"
+                "command": "uglifyjs output/ftk.js -m -c -o output/ftk.min.js"
             },
             "group": "build",
             "presentation": {

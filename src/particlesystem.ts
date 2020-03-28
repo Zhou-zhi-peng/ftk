@@ -32,11 +32,11 @@ namespace ftk {
             this.mParticles.push(particle);
         }
 
-        public DispatchTouchEvent(ev: GTouchEvent, forced: boolean): void {
+        public DispatchTouchEvent(_ev: GTouchEvent, _forced: boolean): void {
         }
-        public DispatchMouseEvent(ev: GMouseEvent, forced: boolean): void {
+        public DispatchMouseEvent(_ev: GMouseEvent, _forced: boolean): void {
         }
-        public DispatchKeyboardEvent(ev: GKeyboardEvent, forced: boolean): void {
+        public DispatchKeyboardEvent(_ev: GKeyboardEvent, _forced: boolean): void {
         }
         public OnRander(rc: CanvasRenderingContext2D): void {
             if (this.mParticleRander) {

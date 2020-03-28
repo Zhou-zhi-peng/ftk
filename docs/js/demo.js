@@ -1,8 +1,20 @@
-/// <reference path="../js/ftk/ftk.d.ts" />
-/// <reference path="resource.def.ts" />
-
-
-namespace app {
+"use strict";
+var app;
+(function (app) {
+    function PrepareResources() {
+        let R = ftk.Engine.R.Edit();
+        let ImageR = ftk.ImageResource;
+        let AudioR = ftk.AudioResource;
+        R.Add(new ImageR("res/images/desktop.jpg"));
+        R.Add(new ImageR("res/images/ready.png"));
+        R.Add(new ImageR("res/images/ready-down.png"));
+        R.Add(new ImageR("res/images/ready-hover.png"));
+        R.Add(new AudioR("res/audios/bk.mp3"));
+    }
+    app.PrepareResources = PrepareResources;
+})(app || (app = {}));
+var app;
+(function (app) {
     class BackgroundLayer extends ftk.BackgroundImageLayer {
         constructor() {
             super();
@@ -14,7 +26,6 @@ namespace app {
             this.EventTransparent = false;
         }
     }
-
     class StartLayer extends ftk.Layer {
         constructor() {
             super();
@@ -24,29 +35,15 @@ namespace app {
             ready.HoverResource = R.GetImage("res/images/ready-hover.png");
             ready.Position = new ftk.Point(280, 200);
             this.AddNode(ready);
-
             let ani = new ftk.KeyframeAnimation(true, true);
             ani.AddFrame(new ftk.AngleAnimation(0, Math.PI * 2, 1000, true, true));
             ani.AddFrame(new ftk.OpacityAnimation(0, 1, 3000, true, true));
-            ani.AddFrame(new ftk.BoxAnimation(
-                new ftk.Rectangle(280, 200, 50, 50),
-                new ftk.Rectangle(200, 150, 300, 100),
-                3000,
-                true,
-                true));
+            ani.AddFrame(new ftk.BoxAnimation(new ftk.Rectangle(280, 200, 50, 50), new ftk.Rectangle(200, 150, 300, 100), 3000, true, true));
             ready.AddAnimation(ani);
-            /*let p:ftk.ui.ProgressBar = new ftk.ui.CircularProgressBar(200, 200, 100, 100);
-            p.Value = 35;
-            this.AddNode(p);
-
-            p = new ftk.ui.RectangularProgressBar(100, 330, 500, 20);
-            p.Value = 35;
-            this.AddNode(p);*/
         }
     }
-
     class EffectsLayer extends ftk.Layer {
-        constructor(stage: ftk.Stage) {
+        constructor(stage) {
             super();
             let fireworks = new ftk.particles.FireworkAnimation();
             fireworks.Position = new ftk.Point(0, 0);
@@ -54,54 +51,43 @@ namespace app {
             this.AddNode(fireworks);
         }
     }
-
-
     class DemoGame {
-        private mEffectsLayer: EffectsLayer;
         constructor() {
             this.mEffectsLayer = new EffectsLayer(ftk.Engine.Root);
             ftk.Engine.Root.AddLayer(new BackgroundLayer());
             ftk.Engine.Root.AddLayer(new StartLayer());
             ftk.Engine.Root.AddLayer(this.mEffectsLayer);
-
-            ftk.Engine.addListener("mouseup", (ev: ftk.GMouseEvent) => {
+            ftk.Engine.addListener("mouseup", (ev) => {
                 console.log(ev.Target);
                 if (ev.Target) {
                     if (ev.Target.Id === "Game.Start.Button") {
                         this.mEffectsLayer.Visible = !this.mEffectsLayer.Visible;
                         if (this.mEffectsLayer.Visible) {
-                            // video.Play();
-
-                            // if(a)a.Audio.play();
-                        } else {
-                            // if(a)a.Audio.pause();
+                        }
+                        else {
                         }
                     }
                 }
             });
-
-            ftk.Engine.addListener("fault", (ev: ftk.EngineEvent) => {
+            ftk.Engine.addListener("fault", (ev) => {
                 this.OnGameFault(ev.Args);
             });
         }
-        public StartUp(): void {
+        StartUp() {
             console.log("game StartUp!");
         }
-        private OnGameFault(reason: string): void {
-
+        OnGameFault(reason) {
         }
     }
-
-    export function Main(canvas: HTMLCanvasElement) {
+    function Main(canvas) {
         ftk.LibrarySetup({
             canvas,
             HideLoading: false,
             HideLogo: false
         });
-
-        PrepareResources();
-        ftk.Engine.addListener("loading", (ev: ftk.EngineEvent) => {
-            let progress = ev.Args as number;
+        app.PrepareResources();
+        ftk.Engine.addListener("loading", (ev) => {
+            let progress = ev.Args;
             console.log(progress);
         });
         ftk.Engine.addListener("ready", () => {
@@ -109,9 +95,10 @@ namespace app {
             let game = new DemoGame();
             game.StartUp();
         });
-        ftk.Engine.addListener("fault", (ev: ftk.EngineEvent) => {
+        ftk.Engine.addListener("fault", (ev) => {
             console.error("game fault:", ev);
         });
         ftk.Engine.Run();
     }
-}
+    app.Main = Main;
+})(app || (app = {}));

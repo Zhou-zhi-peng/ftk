@@ -4,7 +4,7 @@
 /// <reference path="./ui/progressbar.ts" />
 
 namespace ftk {
-    export type MouseEventName =
+    /*export type MouseEventName =
         "mousedown" |
         "mouseup" |
         "mousemove" |
@@ -41,45 +41,22 @@ namespace ftk {
         addKeyboardListener(name: KeyboardEventName, handler: (ev: GKeyboardEvent) => void): void;
         addEngineListener(name: EngineEventName, handler: (ev: EngineEvent) => void): void;
         addNoticeListener(name: string, handler: (ev: NoticeEvent) => void): void;
-    }
+    }*/
 
-    class EventHandlerChain {
-        private mHandlers: Array<Function>;
-        constructor() {
-            this.mHandlers = new Array<Function>();
-        }
-
-        public get length() { return this.mHandlers.length; }
-        public add(handler: Function) {
-            this.mHandlers.push(handler);
-        }
-        public remove(handler: Function) {
-            let i = this.mHandlers.indexOf(handler);
-            if (i >= 0) {
-                this.mHandlers.splice(i, 1);
-            }
-        }
-        public call(ctx: any, ...args: any): any {
-            let r: any;
-            this.mHandlers.forEach((handler) => {
-                r = handler.apply(ctx, args);
-            });
-            return r;
-        }
-    }
-
-    export abstract class AbstractEngine implements IEventListener {
+    export abstract class AbstractEngine extends EventEmitter {
         private mRC: CanvasRenderingContext2D;
         private mCanvas: HTMLCanvasElement;
         private mRootNode: Stage;
         private mEventPrevTarget: IObjectNode | null;
         private mEventCaptured: boolean;
         private mEventCaptureContext: any;
-        private mEventHandlerMap: Map<string, EventHandlerChain>;
-        private mNoticeHandlerMap: Map<string, EventHandlerChain>;
         private mResourceManager: IResourceDB;
         private mFrameRate: number;
+        private mEngineUpdateEventArg = new EngineEvent(this, 0);
+        private mEngineRanderEventArg = new EngineEvent(this, null);
+
         constructor(canvas: HTMLCanvasElement) {
+            super();
             canvas.addEventListener("mousedown", (ev) => { this.OnMouseDown(ev); });
             canvas.addEventListener("mouseup", (ev) => { this.OnMouseUp(ev); });
             canvas.addEventListener("mousemove", (ev) => { this.OnMouseMove(ev); });
@@ -89,11 +66,11 @@ namespace ftk {
             this.mEventPrevTarget = null;
             this.mEventCaptured = false;
             this.mEventCaptureContext = undefined;
-            this.mEventHandlerMap = new Map<string, EventHandlerChain>();
-            this.mNoticeHandlerMap = new Map<string, EventHandlerChain>();
+            // this.mEventHandlerMap = new Map<string, EventHandlerChain>();
+            // this.mNoticeHandlerMap = new Map<string, EventHandlerChain>();
             this.mResourceManager = new ResourceDBEditor();
             this.mFrameRate = 60;
-
+            /*
             this.mEventHandlerMap.set("mousedown", new EventHandlerChain());
             this.mEventHandlerMap.set("mouseup", new EventHandlerChain());
             this.mEventHandlerMap.set("mousemove", new EventHandlerChain());
@@ -117,6 +94,7 @@ namespace ftk {
             this.mEventHandlerMap.set("online", new EventHandlerChain());
             this.mEventHandlerMap.set("active", new EventHandlerChain());
             this.mEventHandlerMap.set("inactive", new EventHandlerChain());
+            */
         }
 
         public get FrameRate(): number { return this.mFrameRate; }
@@ -134,7 +112,7 @@ namespace ftk {
             this.OnRun();
         }
 
-        protected abstract OnRun():void;
+        protected abstract OnRun(): void;
 
         public Notify(source: any, name: string, broadcast: boolean, message: any): any {
             let ev = new NoticeEvent(source, name, broadcast, message);
@@ -142,37 +120,41 @@ namespace ftk {
             if (broadcast) {
                 root.DispatchNoticeEvent(ev, false);
             }
-            let hc = this.mNoticeHandlerMap.get(name);
-            if (hc)
-                return hc.call(this, ev);
+            this.emit(name, ev);
             return undefined;
         }
-
+        /*
         public addMouseListener(name: MouseEventName, handler: (ev: GMouseEvent) => void): void {
             let hc = this.mEventHandlerMap.get(name);
-            if (hc)
+            if (hc) {
                 return hc.add(handler);
+            }
         }
         public addTouchListener(name: TouchEventName, handler: (ev: GTouchEvent) => void): void {
             let hc = this.mEventHandlerMap.get(name);
-            if (hc)
+            if (hc) {
                 return hc.add(handler);
+            }
         }
         public addKeyboardListener(name: KeyboardEventName, handler: (ev: GKeyboardEvent) => void): void {
             let hc = this.mEventHandlerMap.get(name);
-            if (hc)
+            if (hc) {
                 return hc.add(handler);
+            }
         }
         public addEngineListener(name: EngineEventName, handler: (ev: EngineEvent) => void): void {
             let hc = this.mEventHandlerMap.get(name);
-            if (hc)
+            if (hc) {
                 return hc.add(handler);
+            }
         }
         public addNoticeListener(name: string, handler: (ev: NoticeEvent) => void): void {
             let hc = this.mEventHandlerMap.get(name);
-            if (hc)
+            if (hc) {
                 return hc.add(handler);
+            }
         }
+        */
 
 
         private StartLoop(): void {
@@ -184,20 +166,18 @@ namespace ftk {
                     lastUpdateTime = timestamp;
                 }
                 requestAnimationFrame(looper);
-            }
+            };
             requestAnimationFrame(looper);
         }
 
-        private mEngineUpdateEventArg = new EngineEvent(this, 0);
         private MainLoop(timestamp: number): void {
             let root = this.Root;
             root.Update(timestamp);
             this.mEngineUpdateEventArg.Args = timestamp;
-            this.callEventHandler("update", this.mEngineUpdateEventArg);
+            this.emit("update", this.mEngineUpdateEventArg);
             this.Rander();
         }
 
-        private mEngineRanderEventArg = new EngineEvent(this, null);
         private Rander(): void {
             let root = this.Root;
             this.mRC.save();
@@ -218,25 +198,28 @@ namespace ftk {
                 ev.button,
                 0
             );
-            if (this.mEventCaptured)
+            if (this.mEventCaptured) {
                 gev.CaptureContext = this.mEventCaptureContext;
+            }
             return gev;
         }
-        protected callEventHandler(name: string, ev: GEvent) {
+        /*protected callEventHandler(name: string, ev: GEvent) {
             let hc = this.mEventHandlerMap.get(name);
-            if (hc)
+            if (hc) {
                 hc.call(this, ev);
-        }
+            }
+        }*/
         private OnMouseEvent(type: InputEventType, ev: MouseEvent) {
             let root = this.Root;
             let gev = this.createGMouseEvent(type, ev);
             root.DispatchMouseEvent(gev, false);
-            if (gev.StopPropagation)
+            if (gev.StopPropagation) {
                 ev.stopPropagation();
+            }
             if (gev.Target) {
                 switch (gev.InputType) {
                     case InputEventType.MouseDown: {
-                        this.callEventHandler("mousedown", gev);
+                        this.emit("mousedown", gev);
                         break;
                     }
                     case InputEventType.MouseMove: {
@@ -244,26 +227,27 @@ namespace ftk {
                             if (this.mEventPrevTarget) {
                                 let newev = this.createGMouseEvent(InputEventType.MouseLeave, ev);
                                 this.mEventPrevTarget.DispatchMouseEvent(newev, true);
-                                this.callEventHandler("mouselevae", newev);
+                                this.emit("mouselevae", newev);
                             }
                             if (gev.Target) {
                                 let newev = this.createGMouseEvent(InputEventType.MouseEnter, ev);
                                 gev.Target.DispatchMouseEvent(newev, true);
-                                this.callEventHandler("mouseenter", newev);
+                                this.emit("mouseenter", newev);
                             }
                         }
 
-                        this.callEventHandler("mousemove", gev);
+                        this.emit("mousemove", gev);
                         break;
                     }
                     case InputEventType.MouseUp: {
-                        this.callEventHandler("mouseup", gev);
+                        this.emit("mouseup", gev);
                         break;
                     }
                 }
             }
-            if (this.mCanvas.style.cursor !== gev.Cursor)
+            if (this.mCanvas.style.cursor !== gev.Cursor) {
                 this.mCanvas.style.cursor = gev.Cursor;
+            }
             this.mEventPrevTarget = gev.Target;
             this.mEventCaptured = gev.Captured;
             this.mEventCaptureContext = gev.Captured ? gev.CaptureContext : undefined;
@@ -297,9 +281,9 @@ namespace ftk {
         private mShadowBlur = 5;
         constructor(x: number, y: number, w: number, h: number, id?: string) {
             super(id);
-            this.Position = new Point(x,y);
+            this.Position = new Point(x, y);
             this.Resize(w, h);
-            this.BasePoint = new Point(w / 2,h / 2);
+            this.BasePoint = new Point(w / 2, h / 2);
         }
 
         protected OnRander(rc: CanvasRenderingContext2D): void {
@@ -308,8 +292,8 @@ namespace ftk {
         }
 
         protected OnUpdate(timestamp: number): void {
-            this.mShadowBlur = Math.sin(timestamp/300)*15+20;
-            
+            this.mShadowBlur = Math.sin(timestamp / 300) * 15 + 20;
+
         }
         private DrawEngineLogo(rc: CanvasRenderingContext2D, x: number, y: number, size: number): void {
             let r0 = size / 2;
@@ -365,7 +349,7 @@ namespace ftk {
                 y0 = ny;
                 angle += astep;
             }
-            //canvas.closePath();
+            // canvas.closePath();
             rc.lineWidth = 0.8;
             rc.strokeStyle = "#fff";
             rc.stroke();
@@ -373,7 +357,7 @@ namespace ftk {
             rc.fillStyle = this.mColor1.toRGBAString();
             rc.strokeStyle = "#fff";
             rc.lineWidth = 0.5;
-            rc.font = (size / 6) + "px serif";
+            rc.font = (size / 6).toString() + "px serif";
             rc.textBaseline = "middle";
             rc.textAlign = "center";
             rc.fillText("F T K", xc, yc);
@@ -382,71 +366,76 @@ namespace ftk {
     }
 
     class EngineImpl extends AbstractEngine {
-        private mBackgroundLayer:ColoredLayer|undefined;
-        private mLogo:Sprite|undefined;
-        private mLoadingProgressBar:ui.ProgressBar|undefined;
+        private mBackgroundLayer: ColoredLayer | undefined;
+        private mLogo: Sprite | undefined;
+        private mLoadingProgressBar: ui.ProgressBar | undefined;
         constructor(options: LibrarySetupOptions) {
             super(options.canvas);
-            if (options.FrameRate)
+            if (options.FrameRate) {
                 this.setFrameRate(options.FrameRate);
-            if (!options.HideLogo)
+            }
+            if (!options.HideLogo) {
                 this.AddEngineLogo();
+            }
             if (!options.HideLoading) {
                 this.AddLoadingProgressBar();
-                this.addEngineListener("loading", (ev) => {
+                this.addListener("loading", (ev: EngineEvent) => {
                     let progress = ev.Args as number;
-                    if(this.mLoadingProgressBar){
+                    if (this.mLoadingProgressBar) {
                         this.mLoadingProgressBar.Value = progress;
                     }
                 });
             }
-            this.addEngineListener("ready", (ev) => {
-                if(this.mBackgroundLayer){
-                    if(this.mLogo){
+            this.addListener("ready", () => {
+                if (this.mBackgroundLayer) {
+                    if (this.mLogo) {
                         this.mBackgroundLayer.RemoveNode(this.mLogo.Id);
-                        this.mLogo=undefined;
+                        this.mLogo = undefined;
                     }
-                    if(this.mLoadingProgressBar){
+                    if (this.mLoadingProgressBar) {
                         this.mBackgroundLayer.RemoveNode(this.mLoadingProgressBar.Id);
-                        this.mLoadingProgressBar=undefined;
+                        this.mLoadingProgressBar = undefined;
                     }
                     this.Root.RemoveLayer(this.mBackgroundLayer.Id);
-                    this.mBackgroundLayer=undefined;
+                    this.mBackgroundLayer = undefined;
                 }
             });
         }
-        public OnRun():void{
-            if(this.mLogo){
-                setTimeout(()=>{
-                    if(this.mLogo)
+        public OnRun(): void {
+            if (this.mLogo) {
+                setTimeout(() => {
+                    if (this.mLogo) {
                         this.mLogo.Visible = false;
-                    if(this.mLoadingProgressBar)
+                    }
+                    if (this.mLoadingProgressBar) {
                         this.mLoadingProgressBar.Visible = true;
+                    }
                     this._Start();
-                },2000);
-            }else{
-                if(this.mLoadingProgressBar)
+                }, 2000);
+            } else {
+                if (this.mLoadingProgressBar) {
                     this.mLoadingProgressBar.Visible = true;
+                }
                 this._Start();
             }
         }
         public Shutdown(): void {
-            this.callEventHandler("shutdown", new EngineEvent(this, null));
+            this.emit("shutdown", new EngineEvent(this, null));
             this.R.Edit().Clear();
         }
 
-        private _Start():void{
+        private _Start(): void {
             this.R.Edit().LoadAll((progress) => {
-                this.callEventHandler("loading", new EngineEvent(this, progress));
+                this.emit("loading", new EngineEvent(this, progress));
             }).then(() => {
-                this.callEventHandler("ready", new EngineEvent(this, null));
+                this.emit("ready", new EngineEvent(this, null));
             }).catch((reason) => {
-                this.callEventHandler("fault", new EngineEvent(this, reason))
+                this.emit("fault", new EngineEvent(this, reason));
             });
         }
 
-        private AddBackgroundLayer():Layer{
-            if(!this.mBackgroundLayer){
+        private AddBackgroundLayer(): Layer {
+            if (!this.mBackgroundLayer) {
                 this.mBackgroundLayer = new ColoredLayer();
                 this.mBackgroundLayer.BackgroundColor = new Color("#000");
                 this.Root.AddLayer(this.mBackgroundLayer);
@@ -474,15 +463,17 @@ namespace ftk {
     let _EngineImpl: EngineImpl | null = null;
     export let Engine: AbstractEngine;
     export function LibrarySetup(options: LibrarySetupOptions): void {
-        if (_EngineImpl)
+        if (_EngineImpl) {
             throw Error("Libraries cannot be initialized more than once!");
+        }
         _EngineImpl = new EngineImpl(options);
         Engine = _EngineImpl;
     }
 
-    export function LibraryShutdown(options: LibrarySetupOptions): void {
-        if (_EngineImpl)
+    export function LibraryShutdown(): void {
+        if (_EngineImpl) {
             _EngineImpl.Shutdown();
+        }
         _EngineImpl = null;
         (Engine as any) = undefined;
     }

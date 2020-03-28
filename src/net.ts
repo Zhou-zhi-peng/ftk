@@ -1,4 +1,5 @@
 /// <reference path="./utility.ts" />
+/// <reference path="./common.ts" />
 
 namespace ftk.net {
     export type ChannelOptions = {
@@ -8,46 +9,23 @@ namespace ftk.net {
         protocols?: string | string[]
     };
 
-    const _voidfunction = () => { };
-
-    export abstract class Channel {
+    export abstract class Channel extends EventEmitter {
         private mSocket: WebSocket | null;
         private mReconnectInterval: number;
         private mMaxReconnectCount: number;
         private mReconnectCount: number;
         private mCloseing: boolean;
-        private mWaitingQueue: Array<ArrayBuffer>;
-        private mOnReconnect: ((count: number) => void) | null;
-        private mOnError: ((reason: string) => void) | null;
+        private mWaitingQueue: (string | ArrayBuffer | ArrayBufferView)[];
 
-        constructor(options: ChannelOptions) {
+        public constructor(options: ChannelOptions) {
+            super();
             this.mSocket = null;
             this.mReconnectInterval = options.reconnectInterval;
             this.mMaxReconnectCount = options.maxReconnectCount ? options.maxReconnectCount : 0;
             this.mReconnectCount = 0;
             this.mCloseing = false;
             this.mWaitingQueue = new Array<ArrayBuffer>();
-            this.mOnReconnect = _voidfunction;
-            this.mOnError = _voidfunction;
             this.connect(options.url, options.protocols);
-        }
-
-        public get OnReconnect(): (count: number) => void {
-            if (!this.mOnReconnect)
-                return _voidfunction;
-            return this.mOnReconnect;
-        }
-        public set OnReconnect(value: (count: number) => void) {
-            this.mOnReconnect = value;
-        }
-
-        public get OnError(): (reason: string) => void {
-            if (!this.mOnError)
-                return _voidfunction;
-            return this.mOnError;
-        }
-        public set OnError(value: (reason: string) => void) {
-            this.mOnError = value;
         }
 
         private connect(url: string, protocols?: string | string[]): void {
@@ -60,7 +38,7 @@ namespace ftk.net {
                 }
             };
 
-            this.mSocket.onerror = (ev) => {
+            this.mSocket.onerror = () => {
                 if ((!this.mSocket) || this.mSocket.readyState != WebSocket.OPEN) {
                     this.reconnect(url, protocols);
                 }
@@ -69,8 +47,8 @@ namespace ftk.net {
             this.mSocket.onmessage = (ev) => {
                 this.OnMessageHandle(ev.data);
             };
-            this.mSocket.onopen = (ev) => {
-                this.mReconnectCount=0;
+            this.mSocket.onopen = () => {
+                this.mReconnectCount = 0;
                 let s = this.mSocket as WebSocket;
                 this.mWaitingQueue.forEach((buffer) => {
                     s.send(buffer);
@@ -82,33 +60,19 @@ namespace ftk.net {
         private reconnect(url: string, protocols?: string | string[]): void {
             if (this.mMaxReconnectCount > 0 && (++this.mReconnectCount > this.mMaxReconnectCount)) {
                 this.Close();
-                this.OnError("Reconnect exceeds maximum number.");
+                this.emit('error', 'Reconnect exceeds maximum number.');
             } else {
                 setTimeout(() => {
-                    this.OnReconnect(this.mReconnectCount);
-                    if (!this.mCloseing)
+                    this.emit('reconnect', this.mReconnectCount);
+                    if (!this.mCloseing) {
                         this.connect(url, protocols);
+                    }
                 }, this.mReconnectInterval);
             }
         }
 
-        protected abstract OnMessageHandle(data: ArrayBuffer): void;
-
-        protected SendMessage(data: ArrayBuffer): void {
-            if (this.mSocket && this.Connected) {
-                this.mSocket.send(data);
-            } else {
-                if(this.mCloseing){
-                    this.OnError("Can't try an operation on an unrecoverable channel.");
-                }else{
-                    if (this.mWaitingQueue.length > 1024 * 8)
-                        this.mWaitingQueue.shift();
-                    this.mWaitingQueue.push(data);
-                }
-            }
-        }
         public get Connected(): boolean {
-            return (!this.mCloseing) && (this.mSocket!==null) && (this.mSocket.readyState === WebSocket.OPEN);
+            return (!this.mCloseing) && (this.mSocket !== null) && (this.mSocket.readyState === WebSocket.OPEN);
         }
         public get WaitingQueueLength(): number {
             return this.mWaitingQueue.length;
@@ -120,8 +84,9 @@ namespace ftk.net {
                 this.mSocket.onmessage = null;
                 this.mSocket.onopen = null;
 
-                if (this.mSocket.readyState !== WebSocket.CLOSED)
+                if (this.mSocket.readyState !== WebSocket.CLOSED) {
                     this.mSocket.close(255, "call close function");
+                }
             }
         }
 
@@ -130,68 +95,80 @@ namespace ftk.net {
             this.mWaitingQueue.length = 0
             this._Close();
         }
+
+        protected abstract OnMessageHandle(data: string | ArrayBuffer): void;
+
+        protected SendMessage(data: string | ArrayBuffer | ArrayBufferView): void {
+            if (this.mSocket && this.Connected) {
+                this.mSocket.send(data);
+            } else {
+                if (this.mCloseing) {
+                    this.emit('error', "Can't try an operation on an unrecoverable channel.");
+                } else {
+                    if (this.mWaitingQueue.length > 1024 * 8) {
+                        this.mWaitingQueue.shift();
+                    }
+                    this.mWaitingQueue.push(data);
+                }
+            }
+        }
     }
 
     export class StringChannel extends Channel {
-        private mOnMessage: ((data: string) => void) | null = _voidfunction;
-        protected OnMessageHandle(data: ArrayBuffer): void {
-            this.OnMessage(utility.UTF8BufferDecode(data));
-        }
-        public get OnMessage(): (data: string) => void {
-            if (!this.mOnMessage)
-                return _voidfunction;
-            return this.mOnMessage;
-        }
-        public set OnMessage(value: (data: string) => void) {
-            this.mOnMessage = value;
+        protected OnMessageHandle(data: string | ArrayBuffer): void {
+            if (data instanceof ArrayBuffer) {
+                this.emit('message', utility.UTF8BufferDecode(data));
+            }
+            else {
+                this.emit('message', data);
+            }
         }
 
         public Send(data: string): void {
-            this.SendMessage(utility.UTF8BufferEncode(data));
+            this.SendMessage(data);
         }
     }
 
     export class JsonChannel extends Channel {
-        private mOnMessage: ((data: any) => void) | null = _voidfunction;
-        protected OnMessageHandle(data: ArrayBuffer): void {
-            let json:any;
-            try{
-                json = JSON.parse(utility.UTF8BufferDecode(data));
-            }catch(ex){
-                this.OnError("Unexpected end of JSON input");
+        protected OnMessageHandle(data: string | ArrayBuffer): void {
+            let json: any;
+            try {
+                if (data instanceof ArrayBuffer) {
+                    json = JSON.parse(utility.UTF8BufferDecode(data));
+                }
+                else {
+                    json = JSON.parse(data);
+                }
+            } catch (ex) {
+                this.emit('error', "Unexpected end of JSON input");
                 return;
             }
-            this.OnMessage(json);
+            this.emit('message', json);
         }
-        public get OnMessage(): (data: any) => void {
-            if (!this.mOnMessage)
-                return _voidfunction;
-            return this.mOnMessage;
-        }
-        public set OnMessage(value: (data: any) => void) {
-            this.mOnMessage = value;
-        }
+
         public Send(data: any): void {
             this.SendMessage(utility.UTF8BufferEncode(JSON.stringify(data)));
         }
     }
 
     export class ArrayBufferChannel extends Channel {
-        private mOnMessage: ((data: ArrayBuffer) => void) | null = _voidfunction;
-        protected OnMessageHandle(data: ArrayBuffer): void {
-            this.OnMessage(data);
-        }
-        public get OnMessage(): (data: ArrayBuffer) => void {
-            if (!this.mOnMessage)
-                return _voidfunction;
-            return this.mOnMessage;
-        }
-        public set OnMessage(value: (data: ArrayBuffer) => void) {
-            this.mOnMessage = value;
+        protected OnMessageHandle(data: string | ArrayBuffer): void {
+            if (data instanceof ArrayBuffer) {
+                this.emit('message', data);
+            }
+            else {
+                this.emit('message', utility.UTF8BufferEncode(data));
+            }
         }
 
         public Send(data: any): void {
-            this.SendMessage(data);
+            if (data instanceof ArrayBuffer) {
+                this.SendMessage(data);
+            } else if (ArrayBuffer.isView(data)) {
+                this.SendMessage(data);
+            } else if (data && typeof (data) !== 'undefined') {
+                this.SendMessage(utility.UTF8BufferEncode(data.toString()));
+            }
         }
     }
 }

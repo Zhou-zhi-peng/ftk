@@ -50,7 +50,7 @@ namespace ftk.particles {
             this.PA.AddParticle(spark);
             super.Update();
         }
-        public Render(rc: CanvasRenderingContext2D): void {
+        public Render(_rc: CanvasRenderingContext2D): void {
         }
     }
 
@@ -65,7 +65,6 @@ namespace ftk.particles {
         public Update(): void {
             super.Update();
             var bits = Math.ceil(this.life * 10 / this.lifeMax);
-            var dd = (this.lifeMax - this.life) / this.lifeMax + 0.2;
             for (var i = 0; i < bits; ++i) {
                 var flame = new FireworkFlameParticle(this.PA, this.x, this.y)
                 flame.vy *= 1.5;
@@ -73,7 +72,7 @@ namespace ftk.particles {
                 this.PA.AddParticle(flame);
             }
         }
-        public Render(rc: CanvasRenderingContext2D): void {
+        public Render(_rc: CanvasRenderingContext2D): void {
         }
     }
 

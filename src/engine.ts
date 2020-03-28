@@ -4,45 +4,6 @@
 /// <reference path="./ui/progressbar.ts" />
 
 namespace ftk {
-    /*export type MouseEventName =
-        "mousedown" |
-        "mouseup" |
-        "mousemove" |
-        "mouseenter" |
-        "mouselevae";
-
-    export type TouchEventName =
-        "touchcancel" |
-        "touchend" |
-        "touchmove" |
-        "touchstart";
-
-    export type KeyboardEventName =
-        "keydown" |
-        "keyup";
-
-    export type EngineEventName =
-        "loading" |
-        "ready" |
-        "shutdown" |
-        "update" |
-        "rander" |
-        "pause" |
-        "resume" |
-        "fault" |
-        "offline" |
-        "online" |
-        "active" |
-        "inactive";
-
-    export interface IEventListener {
-        addMouseListener(name: MouseEventName, handler: (ev: GMouseEvent) => void): void;
-        addTouchListener(name: TouchEventName, handler: (ev: GTouchEvent) => void): void;
-        addKeyboardListener(name: KeyboardEventName, handler: (ev: GKeyboardEvent) => void): void;
-        addEngineListener(name: EngineEventName, handler: (ev: EngineEvent) => void): void;
-        addNoticeListener(name: string, handler: (ev: NoticeEvent) => void): void;
-    }*/
-
     export abstract class AbstractEngine extends EventEmitter {
         private mRC: CanvasRenderingContext2D;
         private mCanvas: HTMLCanvasElement;
@@ -66,35 +27,8 @@ namespace ftk {
             this.mEventPrevTarget = null;
             this.mEventCaptured = false;
             this.mEventCaptureContext = undefined;
-            // this.mEventHandlerMap = new Map<string, EventHandlerChain>();
-            // this.mNoticeHandlerMap = new Map<string, EventHandlerChain>();
             this.mResourceManager = new ResourceDBEditor();
             this.mFrameRate = 60;
-            /*
-            this.mEventHandlerMap.set("mousedown", new EventHandlerChain());
-            this.mEventHandlerMap.set("mouseup", new EventHandlerChain());
-            this.mEventHandlerMap.set("mousemove", new EventHandlerChain());
-            this.mEventHandlerMap.set("mouseenter", new EventHandlerChain());
-            this.mEventHandlerMap.set("mouselevae", new EventHandlerChain());
-            this.mEventHandlerMap.set("touchcancel", new EventHandlerChain());
-            this.mEventHandlerMap.set("touchend", new EventHandlerChain());
-            this.mEventHandlerMap.set("touchmove", new EventHandlerChain());
-            this.mEventHandlerMap.set("touchstart", new EventHandlerChain());
-            this.mEventHandlerMap.set("keydown", new EventHandlerChain());
-            this.mEventHandlerMap.set("keyup", new EventHandlerChain());
-            this.mEventHandlerMap.set("loading", new EventHandlerChain());
-            this.mEventHandlerMap.set("ready", new EventHandlerChain());
-            this.mEventHandlerMap.set("shutdown", new EventHandlerChain());
-            this.mEventHandlerMap.set("update", new EventHandlerChain());
-            this.mEventHandlerMap.set("rander", new EventHandlerChain());
-            this.mEventHandlerMap.set("pause", new EventHandlerChain());
-            this.mEventHandlerMap.set("resume", new EventHandlerChain());
-            this.mEventHandlerMap.set("fault", new EventHandlerChain());
-            this.mEventHandlerMap.set("offline", new EventHandlerChain());
-            this.mEventHandlerMap.set("online", new EventHandlerChain());
-            this.mEventHandlerMap.set("active", new EventHandlerChain());
-            this.mEventHandlerMap.set("inactive", new EventHandlerChain());
-            */
         }
 
         public get FrameRate(): number { return this.mFrameRate; }
@@ -123,39 +57,6 @@ namespace ftk {
             this.emit(name, ev);
             return undefined;
         }
-        /*
-        public addMouseListener(name: MouseEventName, handler: (ev: GMouseEvent) => void): void {
-            let hc = this.mEventHandlerMap.get(name);
-            if (hc) {
-                return hc.add(handler);
-            }
-        }
-        public addTouchListener(name: TouchEventName, handler: (ev: GTouchEvent) => void): void {
-            let hc = this.mEventHandlerMap.get(name);
-            if (hc) {
-                return hc.add(handler);
-            }
-        }
-        public addKeyboardListener(name: KeyboardEventName, handler: (ev: GKeyboardEvent) => void): void {
-            let hc = this.mEventHandlerMap.get(name);
-            if (hc) {
-                return hc.add(handler);
-            }
-        }
-        public addEngineListener(name: EngineEventName, handler: (ev: EngineEvent) => void): void {
-            let hc = this.mEventHandlerMap.get(name);
-            if (hc) {
-                return hc.add(handler);
-            }
-        }
-        public addNoticeListener(name: string, handler: (ev: NoticeEvent) => void): void {
-            let hc = this.mEventHandlerMap.get(name);
-            if (hc) {
-                return hc.add(handler);
-            }
-        }
-        */
-
 
         private StartLoop(): void {
             let lastUpdateTime: number = 0;
@@ -203,12 +104,7 @@ namespace ftk {
             }
             return gev;
         }
-        /*protected callEventHandler(name: string, ev: GEvent) {
-            let hc = this.mEventHandlerMap.get(name);
-            if (hc) {
-                hc.call(this, ev);
-            }
-        }*/
+
         private OnMouseEvent(type: InputEventType, ev: MouseEvent) {
             let root = this.Root;
             let gev = this.createGMouseEvent(type, ev);

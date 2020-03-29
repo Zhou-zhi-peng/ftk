@@ -13,12 +13,7 @@ namespace ftk {
                 this.parseString(arg1);
             }
             else if ((typeof (arg1) === "number") && (typeof (arg2) === "number") && (typeof (arg3) === "number")) {
-                this.m_r = arg1 & 0xFF;
-                this.m_g = arg2 & 0xFF;
-                this.m_b = arg3 & 0xFF;
-                if (typeof (arg4) === "number") {
-                    this.m_a = Color.ClampedAlphaValue(arg4);
-                }
+                this.setRgba(arg1, arg2, arg3, arg4);
             } else if (typeof (arg1) === "object") {
                 let color = arg1 as Color;
                 this.m_r = color.R;
@@ -104,6 +99,14 @@ namespace ftk {
             return (this.m_r << 24) | (this.m_g << 16) | (this.m_b << 8) | (Math.round(this.m_a * 255));
         }
 
+        public setRgba(r: number, g: number, b: number, a?: number): void {
+            this.m_r = r & 0xFF;
+            this.m_g = g & 0xFF;
+            this.m_b = b & 0xFF;
+            if (typeof (a) === "number") {
+                this.m_a = Color.ClampedAlphaValue(a);
+            }
+        }
         public toRGBString(): string {
             return "rgb(" + this.m_r.toString() + "," + this.m_g.toString() + "," + this.m_b.toString() + ")";
         }

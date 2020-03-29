@@ -2,13 +2,13 @@
 
 namespace ftk {
     export abstract class Sprite implements IObjectNode {
-        private mRectangle: Rectangle = new Rectangle();
         private mAngle = 0;
-        private mBasePoint: Point = new Point();
         private mID: string;
         private mVisible: boolean;
         private mOpacity: number;
         private mAnimations: IAnimation[] | undefined;
+        private mBasePoint: Point = new Point();
+
         constructor(id?: string) {
             if ((!id) || id.length == 0) {
                 id = ftk.utility.GenerateIDString(16);
@@ -21,62 +21,82 @@ namespace ftk {
             return this.mID;
         }
         public get Position(): Point {
+            let r = this.getRectangle();
             return new Point(
-                this.mRectangle.x + this.mBasePoint.x,
-                this.mRectangle.y + this.mBasePoint.y);
+                r.x + this.mBasePoint.x,
+                r.y + this.mBasePoint.y);
         }
         public set Position(pos: Point) {
-            this.mRectangle.x = pos.x - this.mBasePoint.x;
-            this.mRectangle.y = pos.y - this.mBasePoint.y;
+            let r = this.getRectangle();
+            r.x = pos.x - this.mBasePoint.x;
+            r.y = pos.y - this.mBasePoint.y;
+            this.setRectangle(r);
         }
 
         public get X(): number {
-            return this.mRectangle.x + this.mBasePoint.x;
+            let r = this.getRectangle();
+            return r.x + this.mBasePoint.x;
         }
         public set X(value: number) {
-            this.mRectangle.x = value - this.mBasePoint.x;
+            let r = this.getRectangle();
+            r.x = value - this.mBasePoint.x;
+            this.setRectangle(r);
         }
 
         public get Y(): number {
-            return this.mRectangle.y + this.mBasePoint.y;
+            let r = this.getRectangle();
+            return r.y + this.mBasePoint.y;
         }
         public set Y(value: number) {
-            this.mRectangle.y = value - this.mBasePoint.y;
+            let r = this.getRectangle();
+            r.y = value - this.mBasePoint.y;
+            this.setRectangle(r);
         }
 
         public get Box(): Rectangle {
-            return this.mRectangle.clone();
+            return this.getRectangle().clone();
         }
 
         public set Box(value: Rectangle) {
-            this.mRectangle = value.clone();
+            this.setRectangle(value.clone());
+            this.OnResized();
         }
 
         public get size(): Size {
-            return this.mRectangle.size;
+            let r = this.getRectangle();
+            return r.size;
         }
         public set size(value: Size) {
-            this.mRectangle.size = value;
+            let r = this.getRectangle();
+            r.size = value;
+            this.setRectangle(r);
+            this.OnResized();
         }
 
         public get Width(): number {
-            return this.mRectangle.w;
+            let r = this.getRectangle();
+            return r.w;
         }
         public set Width(value: number) {
-            this.mRectangle.w = value;
+            let r = this.getRectangle();
+            r.w = value;
+            this.setRectangle(r);
+            this.OnResized();
         }
 
         public get Height(): number {
-            return this.mRectangle.h;
+            let r = this.getRectangle();
+            return r.h;
         }
         public set Height(value: number) {
-            this.mRectangle.h = value;
+            let r = this.getRectangle();
+            r.h = value;
+            this.setRectangle(r);
+            this.OnResized();
         }
 
         public Resize(w: number, h: number) {
-            this.mRectangle.w = w;
-            this.mRectangle.h = h;
-            this.OnResized();
+            this.size = new Size(w, h);
         }
 
         public get Angle(): number {
@@ -98,6 +118,12 @@ namespace ftk {
         }
         public set BasePoint(pos: Point) {
             this.mBasePoint = pos.clone();
+        }
+
+        public setBasePointToCenter(): void {
+            let r = this.getRectangle();
+            this.mBasePoint.x = r.w / 2;
+            this.mBasePoint.y = r.h / 2;
         }
 
         public get Visible(): boolean {
@@ -141,7 +167,7 @@ namespace ftk {
         }
 
         public PickTest(point: Point): boolean {
-            let box = this.Box;
+            let box = this.getRectangle();
             return point.x > box.x && (point.x < box.x + box.w)
                 && point.y > box.y && (point.y < box.y + box.h);
         }
@@ -151,7 +177,7 @@ namespace ftk {
                 rc.save();
                 let angle = this.Angle;
                 if (angle !== 0) {
-                    let box = this.Box;
+                    let box = this.getRectangle();
                     let bp = this.BasePoint;
                     let xc = box.x + bp.x;
                     let yc = box.y + bp.y;
@@ -207,6 +233,9 @@ namespace ftk {
             this.OnUpdate(timestamp);
         }
 
+        protected abstract getRectangle(): Rectangle;
+        protected abstract setRectangle(value: Rectangle): void;
+
         protected OnResized(): void {
         }
 
@@ -237,5 +266,22 @@ namespace ftk {
             return pt;
         }
 
+    }
+
+    export abstract class RectangleSprite extends Sprite {
+        private mRectangle: Rectangle;
+        constructor(x: number, y: number, w: number, h: number, id?: string) {
+            super(id);
+            this.mRectangle = new Rectangle(x, y, w, h);
+        }
+        protected getRectangle(): Rectangle {
+            return this.mRectangle;
+        }
+        protected setRectangle(value: Rectangle): void {
+            if (this.mRectangle !== value) {
+                this.mRectangle = value;
+            }
+            this.mRectangle.normalize();
+        }
     }
 }

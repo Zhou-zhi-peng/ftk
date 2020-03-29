@@ -2,10 +2,10 @@
 /// <reference path="./resource.ts" />
 
 namespace ftk {
-    export class ImageSprite extends Sprite {
+    export class ImageSprite extends RectangleSprite {
         private mImage: ImageResource;
         constructor(resource?: ImageResource, w?: number, h?: number, id?: string) {
-            super(id);
+            super(0, 0, 0, 0, id);
             if (resource) {
                 this.mImage = resource;
             }
@@ -17,7 +17,6 @@ namespace ftk {
             } else {
                 this.Resize(this.mImage.Image.naturalWidth, this.mImage.Image.naturalHeight);
             }
-
             let size = this.Box.size;
             this.BasePoint = new Point(size.cx / 2, size.cy / 2);
         }

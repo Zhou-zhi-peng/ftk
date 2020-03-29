@@ -18,7 +18,8 @@ namespace ftk {
         private mFrameRate: number;
         private mEngineUpdateEventArg = new EngineEvent(this, 0);
         private mEngineRanderEventArg = new EngineEvent(this, null);
-
+        private mLastRanderDuration: number;
+        public DebugInfoVisible: boolean;
         public constructor(canvas: HTMLCanvasElement) {
             super();
             canvas.addEventListener("mousedown", (ev) => { this.OnMouseDown(ev); });
@@ -34,6 +35,8 @@ namespace ftk {
             this.mEventCaptureContext = undefined;
             this.mResourceManager = new ResourceDBEditor();
             this.mFrameRate = 60;
+            this.mLastRanderDuration = 0;
+            this.DebugInfoVisible = false;
         }
 
         public get FrameRate(): number { return this.mFrameRate; }
@@ -42,6 +45,10 @@ namespace ftk {
         public get Root(): Stage { return this.mRootNode; }
         public get R(): IResourceDB {
             return this.mResourceManager;
+        }
+
+        public get LastRanderDuration(): number {
+            return this.mLastRanderDuration;
         }
 
         public Run(): void {
@@ -62,7 +69,7 @@ namespace ftk {
 
         protected setFrameRate(value: number) { this.mFrameRate = value; }
         protected abstract OnRun(): void;
-
+        protected abstract DrawDebugInfo(rc: CanvasRenderingContext2D): void;
         private StartLoop(): void {
             let lastUpdateTime: number = 0;
             let looper = (timestamp: number) => {
@@ -85,6 +92,7 @@ namespace ftk {
         }
 
         private Rander(): void {
+            let now = Date.now();
             let root = this.Root;
             this.mOffscreenRC.save();
             root.Rander(this.mOffscreenRC);
@@ -94,17 +102,25 @@ namespace ftk {
             this.emit('rander', this.mEngineRanderEventArg);
 
             this.mRC.drawImage(this.mOffscreenCanvas, 0, 0);
+            this.mLastRanderDuration = Date.now() - now;
+
+            if (this.DebugInfoVisible) {
+                this.mRC.save();
+                this.DrawDebugInfo(this.mRC);
+                this.mRC.restore();
+            }
         }
 
         private createGMouseEvent(type: InputEventType, ev: MouseEvent): GMouseEvent {
+            let rect = this.mCanvas.getBoundingClientRect();
             let gev = new GMouseEvent(
                 this,
                 type,
                 ev.altKey,
                 ev.ctrlKey,
                 ev.shiftKey,
-                ev.clientX,
-                ev.clientY,
+                ev.clientX - rect.left,
+                ev.clientY - rect.top,
                 ev.button,
                 0
             );
@@ -193,14 +209,12 @@ namespace ftk {
         HideLoading?: boolean;
     };
 
-    export class EngineLogoSprite extends Sprite {
+    export class EngineLogoSprite extends RectangleSprite {
         private mColor0 = new Color(0xff0060ff);
         private mColor1 = new Color(0xff0000ff);
         private mShadowBlur = 5;
         constructor(x: number, y: number, w: number, h: number, id?: string) {
-            super(id);
-            this.Position = new Point(x, y);
-            this.Resize(w, h);
+            super(x, y, w, h, id);
             this.BasePoint = new Point(w / 2, h / 2);
         }
 
@@ -287,6 +301,7 @@ namespace ftk {
         private mBackgroundLayer: ColoredLayer | undefined;
         private mLogo: Sprite | undefined;
         private mLoadingProgressBar: ui.ProgressBar | undefined;
+        private mRanderDurationList: number[];
         constructor(options: LibrarySetupOptions) {
             super(options.canvas);
             if (options.FrameRate) {
@@ -304,6 +319,7 @@ namespace ftk {
                     }
                 });
             }
+            this.mRanderDurationList = Array<number>();
             this.addListener("ready", () => {
                 if (this.mBackgroundLayer) {
                     if (this.mLogo) {
@@ -340,6 +356,27 @@ namespace ftk {
         public Shutdown(): void {
             this.emit("shutdown", new EngineEvent(this, null));
             this.R.Edit().Clear();
+        }
+
+        protected DrawDebugInfo(rc: CanvasRenderingContext2D): void {
+            if (this.mRanderDurationList.length >= 32) {
+                this.mRanderDurationList.shift();
+            }
+            this.mRanderDurationList.push(this.LastRanderDuration);
+            let duration = 0;
+            this.mRanderDurationList.forEach((v) => { duration += v; });
+            duration = Math.ceil(duration / this.mRanderDurationList.length);
+            rc.fillStyle = 'rgba(0,0,0,0.7)';
+            rc.strokeStyle = 'rgba(80,80,80,0.7)';
+            rc.fillRect(0, 0, 120, 70);
+            rc.strokeRect(0, 0, 120, 70);
+            rc.font = '16px serif';
+            rc.fillStyle = '#FFFFFF';
+            rc.textBaseline = 'top';
+            rc.textAlign = 'start';
+            rc.fillText('LDUT: ' + duration.toString() + ' ms', 10, 5, 120);
+            rc.fillText('RFPS: ' + Math.ceil(1000 / (duration + 1)).toString(), 10, 25, 120);
+            rc.fillText('SFPS: ' + this.FrameRate.toString(), 10, 45, 120);
         }
 
         private _Start(): void {

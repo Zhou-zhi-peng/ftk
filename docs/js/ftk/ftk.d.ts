@@ -92,6 +92,7 @@ declare namespace ftk {
         readonly Luminance: number;
         readonly RGBValue: number;
         readonly RGBAValue: number;
+        setRgba(r: number, g: number, b: number, a?: number): void;
         toRGBString(): string;
         toRGBAString(): string;
         toHEXString(alpha?: boolean): string;
@@ -100,7 +101,7 @@ declare namespace ftk {
     }
 }
 declare namespace ftk {
-    interface IReadOnlyArray<T> {
+    interface IReadonlyArray<T> extends Iterable<T> {
         readonly length: number;
         [index: number]: T;
     }
@@ -194,9 +195,9 @@ declare namespace ftk {
         constructor(source: any, eventType: InputEventType, altKey: boolean, ctrlKey: boolean, shiftKey: boolean);
     }
     class GTouchEvent extends GInputEvent {
-        readonly Touches: IReadOnlyArray<ITouchPoint>;
-        readonly ChangedTouches: IReadOnlyArray<ITouchPoint>;
-        constructor(source: any, eventType: InputEventType, altKey: boolean, ctrlKey: boolean, shiftKey: boolean, touches: IReadOnlyArray<ITouchPoint>, changedTouches: IReadOnlyArray<ITouchPoint>);
+        readonly Touches: IReadonlyArray<ITouchPoint>;
+        readonly ChangedTouches: IReadonlyArray<ITouchPoint>;
+        constructor(source: any, eventType: InputEventType, altKey: boolean, ctrlKey: boolean, shiftKey: boolean, touches: IReadonlyArray<ITouchPoint>, changedTouches: IReadonlyArray<ITouchPoint>);
     }
     class GMouseEvent extends GInputEvent {
         readonly x: number;
@@ -255,12 +256,15 @@ declare namespace ftk {
         Opacity: number;
         BasePoint: Point;
         Visible: boolean;
-        readonly Animations: IReadOnlyArray<IAnimation>;
+        readonly Animations: IReadonlyArray<IAnimation>;
         AddAnimation(animation: IAnimation): void;
         RemoveAnimation(animation: IAnimation): boolean;
         ClearAnimations(): void;
+        setBasePointToCenter(): void;
         PickTest(point: Point): boolean;
         Rander(rc: CanvasRenderingContext2D | null): void;
+        protected abstract getRectangle(): Rectangle;
+        protected abstract setRectangle(value: Rectangle): void;
         protected abstract OnRander(rc: CanvasRenderingContext2D): void;
         protected OnUpdate(_timestamp: number): void;
         protected OnDispatchTouchEvent(_ev: GTouchEvent, _forced: boolean): void;
@@ -277,11 +281,76 @@ declare namespace ftk {
         DispatchNoticeEvent(ev: NoticeEvent, forced: boolean): void;
         Update(timestamp: number): void;
     }
+
+    abstract class RectangleSprite extends Sprite {
+        constructor(x: number, y: number, w: number, h: number, id?: string);
+        protected getRectangle(): Rectangle;
+        protected setRectangle(value: Rectangle): void;
+    }
 }
+
 declare namespace ftk {
-    class ParticleSprite extends Sprite {
+    abstract class Shape extends Sprite {
+        public LineWidth: number;
+        public ForegroundColor: Color;
+        public BackgroundColor: Color;
+        public BorderColor: Color;
+        public Text: string | undefined;
+
+        public constructor(id?: string)
+        protected abstract OnDrawShape(rc: CanvasRenderingContext2D): void;
+        protected OnRander(rc: CanvasRenderingContext2D): void;
+    }
+
+    export class LineShape extends Shape {
+        constructor(start: Point, end: Point, id?: string);
+        public PickTest(point: Point): boolean;
+
+        protected getRectangle(): Rectangle;
+        protected setRectangle(value: Rectangle): void;
+
+        protected OnDrawShape(rc: CanvasRenderingContext2D): void;
+    }
+
+    export class RectangleShape extends Shape {
+        constructor(x: number, y: number, w: number, h: number, id?: string);
+
+        protected getRectangle(): Rectangle;
+        protected setRectangle(value: Rectangle): void;
+
+        protected OnDrawShape(rc: CanvasRenderingContext2D): void;
+    }
+
+    export class PolygonShape extends Shape {
+        constructor(vertexs?: IReadonlyArray<Point>, id?: string);
+        public PickTest(point: Point): boolean;
+        protected getRectangle(): Rectangle;
+        protected setRectangle(value: Rectangle): void;
+
+        protected OnDrawShape(rc: CanvasRenderingContext2D): void;
+    }
+
+    export class EPolygonShape extends PolygonShape {
+        constructor(x: number, y: number, radius: number, side: number, id?: string);
+
+        protected static getVertexs(x: number, y: number, radius: number, side: number): Point[];
+    }
+
+    export class CircleShape extends Shape {
+        constructor(x: number, y: number, radius: number, id?: string);
+
+        public PickTest(point: Point): boolean;
+        protected getRectangle(): Rectangle;
+        protected setRectangle(value: Rectangle): void;
+
+        protected OnDrawShape(rc: CanvasRenderingContext2D): void;
+    }
+}
+
+declare namespace ftk {
+    class ParticleSprite extends RectangleSprite {
         constructor();
-        readonly Particles: IReadOnlyArray<Particle>;
+        readonly Particles: IReadonlyArray<Particle>;
         readonly Ticks: number;
         readonly LastUpdateTime: number;
         readonly UpdateTime: number;
@@ -294,32 +363,30 @@ declare namespace ftk {
         Update(timestamp: number): void;
     }
     abstract class Particle {
-        x: number;
-        y: number;
-        vx: number;
-        vy: number;
-        life: number;
-        bounce: number;
-        gravity: number;
-        drag: number;
-        active: boolean;
+        public x: number; // 位置
+        public y: number;
+        public w: number; // 大小
+        public h: number;
+        public vx: number; // 速度
+        public vy: number;
+        public ax: number; // 加速度
+        public ay: number;
+        public maxLife: number; // 预设寿命
+        public age: number; // 当前寿命
+        public exp: number; // 膨胀
+        public gravity: number; // 重力
+        public drag: number; // 阻力(0无穷大，1无阻力)
+        public active: boolean;
+        public readonly PA: ParticleSprite;
+
         constructor(pa: ParticleSprite, x: number, y: number);
-        readonly PA: ParticleSprite;
-        Update(): void;
+        Update(timestamp: number): void;
         abstract Render(rc: CanvasRenderingContext2D): void;
     }
 }
-declare namespace ftk.particles {
-    class SpeedParticle extends Particle {
-        color: Color;
-        size: number;
-        constructor(pa: ParticleSprite, x: number, y: number, color: Color);
-        Render(rc: CanvasRenderingContext2D): void;
-        Update(): void;
-    }
-}
+
 declare namespace ftk.ui {
-    abstract class ProgressBar extends Sprite {
+    abstract class ProgressBar extends RectangleSprite {
         constructor(x: number, y: number, w: number, h: number, id?: string);
         Value: number;
         MaxValue: number;
@@ -364,17 +431,19 @@ declare namespace ftk {
     abstract class AbstractEngine extends EventEmitter {
         constructor(canvas: HTMLCanvasElement);
         readonly FrameRate: number;
-        protected setFrameRate(value: number): void;
         readonly ViewportWidth: number;
         readonly ViewportHeight: number;
         readonly Root: Stage;
         readonly R: IResourceDB;
+        readonly LastRanderDuration: number;
+        DebugInfoVisible: boolean;
         Run(): void;
-        protected abstract OnRun(): void;
         Notify(source: any, name: string, broadcast: boolean, message: any): any;
+        protected abstract OnRun(): void;
+        protected setFrameRate(value: number): void;
 
         addListener<K extends keyof EngineEventMap>(evt: K, listener: (ev: EngineEventMap[K]) => void): void;
-        removeListener<K extends keyof EngineEventMap>(evt: K, listener: (ev: EngineEventMap[K]) => void): void;
+        removeListener<K extends keyof EngineEventMap>(evt: K, listener?: (ev: EngineEventMap[K]) => void): void;
         on<K extends keyof EngineEventMap>(evt: K, listener: (ev: EngineEventMap[K]) => void): void;
         once<K extends keyof EngineEventMap>(evt: K, listener: (ev: EngineEventMap[K]) => void): void;
         off<K extends keyof EngineEventMap>(evt: K, listener: (ev: EngineEventMap[K]) => void): void;
@@ -388,7 +457,7 @@ declare namespace ftk {
         HideLogo?: boolean;
         HideLoading?: boolean;
     };
-    class EngineLogoSprite extends Sprite {
+    class EngineLogoSprite extends RectangleSprite {
         constructor(x: number, y: number, w: number, h: number, id?: string);
         protected OnRander(rc: CanvasRenderingContext2D): void;
         protected OnUpdate(timestamp: number): void;
@@ -485,9 +554,9 @@ declare namespace ftk {
     }
     class Polygon implements IClone<Polygon> {
         closed: boolean;
-        constructor(vertexs?: IReadOnlyArray<Point>);
+        constructor(vertexs?: IReadonlyArray<Point>);
         clone(): Polygon;
-        readonly vertexs: IReadOnlyArray<Point>;
+        readonly vertexs: IReadonlyArray<Point>;
         static isBoundary(point: Point, p: Polygon): boolean;
         isBoundary(point: Point): boolean;
         static isInPolygon(point: Point, p: Polygon): boolean;
@@ -631,7 +700,7 @@ declare namespace ftk {
     }
 }
 declare namespace ftk {
-    class ImageSprite extends Sprite {
+    class ImageSprite extends RectangleSprite {
         constructor(resource?: ImageResource, w?: number, h?: number, id?: string);
         Resource: ImageResource;
         protected OnRander(rc: CanvasRenderingContext2D): void;
@@ -690,7 +759,7 @@ declare namespace ftk.net {
         protected SendMessage(data: string | ArrayBuffer | ArrayBufferView): void;
 
         addListener<K extends keyof ChannelEventMap>(evt: K, listener: ChannelEventMap[K]): void;
-        removeListener<K extends keyof ChannelEventMap>(evt: K, listener: ChannelEventMap[K]): void;
+        removeListener<K extends keyof ChannelEventMap>(evt: K, listener?: ChannelEventMap[K]): void;
         on<K extends keyof ChannelEventMap>(evt: K, listener: ChannelEventMap[K]): void;
         once<K extends keyof ChannelEventMap>(evt: K, listener: ChannelEventMap[K]): void;
         off<K extends keyof ChannelEventMap>(evt: K, listener: ChannelEventMap[K]): void;
@@ -705,7 +774,7 @@ declare namespace ftk.net {
         Send(data: string): void;
 
         addListener<K extends keyof StringChannelEventMap>(evt: K, listener: StringChannelEventMap[K]): void;
-        removeListener<K extends keyof StringChannelEventMap>(evt: K, listener: StringChannelEventMap[K]): void;
+        removeListener<K extends keyof StringChannelEventMap>(evt: K, listener?: StringChannelEventMap[K]): void;
         on<K extends keyof StringChannelEventMap>(evt: K, listener: StringChannelEventMap[K]): void;
         once<K extends keyof StringChannelEventMap>(evt: K, listener: StringChannelEventMap[K]): void;
         off<K extends keyof StringChannelEventMap>(evt: K, listener: StringChannelEventMap[K]): void;
@@ -720,7 +789,7 @@ declare namespace ftk.net {
         Send(data: any): void;
 
         addListener<K extends keyof JsonChannelEventMap>(evt: K, listener: JsonChannelEventMap[K]): void;
-        removeListener<K extends keyof JsonChannelEventMap>(evt: K, listener: JsonChannelEventMap[K]): void;
+        removeListener<K extends keyof JsonChannelEventMap>(evt: K, listener?: JsonChannelEventMap[K]): void;
         on<K extends keyof JsonChannelEventMap>(evt: K, listener: JsonChannelEventMap[K]): void;
         once<K extends keyof JsonChannelEventMap>(evt: K, listener: JsonChannelEventMap[K]): void;
         off<K extends keyof JsonChannelEventMap>(evt: K, listener: JsonChannelEventMap[K]): void;
@@ -735,14 +804,14 @@ declare namespace ftk.net {
         Send(data: any): void;
 
         addListener<K extends keyof ArrayBufferChannelEventMap>(evt: K, listener: ArrayBufferChannelEventMap[K]): void;
-        removeListener<K extends keyof ArrayBufferChannelEventMap>(evt: K, listener: ArrayBufferChannelEventMap[K]): void;
+        removeListener<K extends keyof ArrayBufferChannelEventMap>(evt: K, listener?: ArrayBufferChannelEventMap[K]): void;
         on<K extends keyof ArrayBufferChannelEventMap>(evt: K, listener: ArrayBufferChannelEventMap[K]): void;
         once<K extends keyof ArrayBufferChannelEventMap>(evt: K, listener: ArrayBufferChannelEventMap[K]): void;
         off<K extends keyof ArrayBufferChannelEventMap>(evt: K, listener: ArrayBufferChannelEventMap[K]): void;
     }
 }
 declare namespace ftk {
-    class VideoSprite extends Sprite {
+    class VideoSprite extends RectangleSprite {
         constructor(resource?: VideoResource, w?: number, h?: number, id?: string);
         Resource: VideoResource;
         protected OnRander(rc: CanvasRenderingContext2D): void;
@@ -784,4 +853,9 @@ declare namespace ftk.ui {
         protected OnDispatchMouseEvent(ev: GMouseEvent, _forced: boolean): void;
     }
 }
-//# sourceMappingURL=ftk.d.ts.map
+declare namespace ftk.ui {
+    class Panel extends RectangleShape {
+        protected OnRander(rc: CanvasRenderingContext2D): void;
+    }
+}
+

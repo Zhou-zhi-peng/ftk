@@ -2,10 +2,10 @@
 /// <reference path="./resource.ts" />
 
 namespace ftk {
-    export class VideoSprite extends Sprite {
+    export class VideoSprite extends RectangleSprite {
         private mVideo: VideoResource;
         constructor(resource?: VideoResource, w?: number, h?: number, id?: string) {
-            super(id);
+            super(0, 0, 0, 0, id);
             if (resource) {
                 this.mVideo = resource;
             }

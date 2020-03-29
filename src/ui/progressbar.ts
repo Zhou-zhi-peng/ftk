@@ -1,14 +1,13 @@
 /// <reference path="../particlesystem.ts" />
-/// <reference path="../particles/seed.ts" />
 
 namespace ftk.ui {
-    export abstract class ProgressBar extends Sprite {
+    export abstract class ProgressBar extends RectangleSprite {
         private mValue: number;
         private mMax: number;
         private mMin: number;
 
         constructor(x: number, y: number, w: number, h: number, id?: string) {
-            super(id);
+            super(x, y, w, h, id);
             this.Position = new Point(x, y);
             this.Resize(w, h);
             this.mValue = 0;

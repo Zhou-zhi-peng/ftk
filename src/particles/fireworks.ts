@@ -3,12 +3,11 @@
 namespace ftk.particles {
     export class FireworkSparkParticle extends Particle {
         public hue: number;
-        public lifeMax: number;
         public color: string;
         constructor(pa: ParticleSprite, x: number, y: number) {
             super(pa, x, y);
             this.hue = Math.floor(Math.random() * 360);
-            this.lifeMax = this.life;
+            this.maxLife = this.age;
             this.drag = 0.9;
             this.color = this.randColor();
         }
@@ -17,8 +16,8 @@ namespace ftk.particles {
             rc.fillRect(this.x - 1, this.y - 1, 2, 2);
         }
 
-        public Update(): void {
-            super.Update();
+        public Update(timestamp: number): void {
+            super.Update(timestamp);
             if (Math.random() < 0.5) {
                 this.color = this.randColor();
             }
@@ -39,32 +38,31 @@ namespace ftk.particles {
     export class FireworkFlameParticle extends Particle {
         constructor(pa: ParticleSprite, x: number, y: number) {
             super(pa, x, y);
-            this.life *= 2;
+            this.age /= 2;
         }
-        public Update(): void {
+        public Update(timestamp: number): void {
             let spark = new FireworkSparkParticle(this.PA, this.x, this.y);
             spark.vx /= 10;
             spark.vy /= 10;
             spark.vx += this.vx / 2;
             spark.vy += this.vy / 2;
             this.PA.AddParticle(spark);
-            super.Update();
+            super.Update(timestamp);
         }
         public Render(_rc: CanvasRenderingContext2D): void {
         }
     }
 
     export class FireworkParticle extends Particle {
-        public lifeMax: number;
         constructor(pa: ParticleSprite, x: number, y: number) {
             super(pa, x, y);
-            this.lifeMax = 5;
-            this.life = this.lifeMax;
+            this.maxLife = 5;
+            this.age = 0;
         }
 
-        public Update(): void {
-            super.Update();
-            let bits = Math.ceil(this.life * 10 / this.lifeMax);
+        public Update(timestamp: number): void {
+            super.Update(timestamp);
+            let bits = Math.ceil(this.age * 10 / this.maxLife);
             for (let i = 0; i < bits; ++i) {
                 let flame = new FireworkFlameParticle(this.PA, this.x, this.y);
                 flame.vy *= 1.5;

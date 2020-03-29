@@ -1,7 +1,7 @@
 /// <reference path="./sprite.ts" />
 
 namespace ftk {
-    export class ParticleSprite extends Sprite {
+    export class ParticleSprite extends RectangleSprite {
         private mParticles: Particle[];
         private mTicks: number;
         private mLastUpdateTime: number;
@@ -9,7 +9,7 @@ namespace ftk {
         private mParticleRander: ((rc: CanvasRenderingContext2D, particle: Particle) => void) | null;
 
         public constructor() {
-            super();
+            super(0, 0, 0, 0);
             this.mParticles = new Array<Particle>();
             this.mTicks = 0;
             this.mLastUpdateTime = 0;
@@ -39,6 +39,11 @@ namespace ftk {
         public DispatchKeyboardEvent(_ev: GKeyboardEvent, _forced: boolean): void {
         }
         public OnRander(rc: CanvasRenderingContext2D): void {
+            let r = this.getRectangle();
+            rc.beginPath();
+            rc.rect(r.x, r.y, r.w, r.h);
+            rc.clip();
+
             if (this.mParticleRander) {
                 let randerHook = this.mParticleRander;
                 this.mParticles.forEach((particle) => { randerHook.call(this, rc, particle); });
@@ -52,7 +57,7 @@ namespace ftk {
             if (!this.OnUpdate()) {
                 let arr = this.mParticles;
                 for (let p of arr) {
-                    p.Update();
+                    p.Update(timestamp);
                 }
                 let j = 0;
                 for (let p of arr) {
@@ -71,14 +76,21 @@ namespace ftk {
         }
     }
     export abstract class Particle {
-        public x: number;
+        private birth: number;
+
+        public x: number; // 位置
         public y: number;
-        public vx: number;
+        public w: number; // 大小
+        public h: number;
+        public vx: number; // 速度
         public vy: number;
-        public life: number;
-        public bounce: number;
-        public gravity: number;
-        public drag: number;
+        public ax: number; // 加速度
+        public ay: number;
+        public maxLife: number; // 预设寿命
+        public age: number; // 当前寿命
+        public exp: number; // 膨胀
+        public gravity: number; // 重力
+        public drag: number; // 阻力(0无穷大，1无阻力)
         public active: boolean;
         public readonly PA: ParticleSprite;
 
@@ -86,44 +98,48 @@ namespace ftk {
             this.PA = pa;
             this.x = x;
             this.y = y;
-            let pt = this.randPointOnCircle(Math.random() + 1);
-            this.vx = pt.x;
-            this.vy = pt.y;
-            this.life = Math.floor(Math.random() * 20) + 40;
-            this.bounce = 0.6;
+            this.w = 0;
+            this.h = 0;
+            this.vx = 0;
+            this.vy = 0;
+            this.ax = 0;
+            this.ay = 0;
+            this.maxLife = 0;
+            this.age = 0;
+            this.exp = 0;
             this.gravity = 0.07;
             this.drag = 0.998;
+            this.birth = -1;
             this.active = true;
         }
 
-        public Update(): void {
-            if (--this.life < 0) {
-                this.active = false;
+        public Update(timestamp: number): void {
+            let r = this.PA.Box;
+            if (this.active || r.isInside(this.x, this.y)) {
+                if (this.birth < 0) {
+                    this.birth = timestamp;
+                }
+                else {
+                    this.age = timestamp - this.birth;
+                }
+                if (this.age >= this.maxLife) {
+                    this.active = false;
+                }
+                this.vy += this.gravity + this.ay;
+                this.vx += this.ax;
+                if (this.drag !== 1) {
+                    this.vx *= this.drag;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.exp !== 0) {
+                    this.w += this.exp;
+                    this.h += this.exp;
+                }
             }
-            this.vy += this.gravity;
-            this.vx *= this.drag;
-            this.x += this.vx;
-            this.y += this.vy;
         }
         public abstract Render(rc: CanvasRenderingContext2D): void;
-        private randPointOnCircle(size: number): Point {
-            if (size == null) {
-                size = 1;
-            }
-            let x = 0.0;
-            let y = 0.0;
-            let s = 0.0;
-            do {
-                x = (Math.random() - 0.5) * 2.0;
-                y = (Math.random() - 0.5) * 2.0;
-                s = x * x + y * y;
-            } while (s > 1);
-
-            let scale = size / Math.sqrt(s);
-            return new Point(
-                x * scale,
-                y * scale
-            );
-        }
     }
 }

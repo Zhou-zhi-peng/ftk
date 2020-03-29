@@ -216,12 +216,7 @@ var ftk;
                 this.parseString(arg1);
             }
             else if ((typeof (arg1) === "number") && (typeof (arg2) === "number") && (typeof (arg3) === "number")) {
-                this.m_r = arg1 & 0xFF;
-                this.m_g = arg2 & 0xFF;
-                this.m_b = arg3 & 0xFF;
-                if (typeof (arg4) === "number") {
-                    this.m_a = Color.ClampedAlphaValue(arg4);
-                }
+                this.setRgba(arg1, arg2, arg3, arg4);
             }
             else if (typeof (arg1) === "object") {
                 let color = arg1;
@@ -295,6 +290,14 @@ var ftk;
         }
         get RGBAValue() {
             return (this.m_r << 24) | (this.m_g << 16) | (this.m_b << 8) | (Math.round(this.m_a * 255));
+        }
+        setRgba(r, g, b, a) {
+            this.m_r = r & 0xFF;
+            this.m_g = g & 0xFF;
+            this.m_b = b & 0xFF;
+            if (typeof (a) === "number") {
+                this.m_a = Color.ClampedAlphaValue(a);
+            }
         }
         toRGBString() {
             return "rgb(" + this.m_r.toString() + "," + this.m_g.toString() + "," + this.m_b.toString() + ")";
@@ -798,7 +801,6 @@ var ftk;
 (function (ftk) {
     class Sprite {
         constructor(id) {
-            this.mRectangle = new ftk.Rectangle();
             this.mAngle = 0;
             this.mBasePoint = new ftk.Point();
             if ((!id) || id.length == 0) {
@@ -812,52 +814,72 @@ var ftk;
             return this.mID;
         }
         get Position() {
-            return new ftk.Point(this.mRectangle.x + this.mBasePoint.x, this.mRectangle.y + this.mBasePoint.y);
+            let r = this.getRectangle();
+            return new ftk.Point(r.x + this.mBasePoint.x, r.y + this.mBasePoint.y);
         }
         set Position(pos) {
-            this.mRectangle.x = pos.x - this.mBasePoint.x;
-            this.mRectangle.y = pos.y - this.mBasePoint.y;
+            let r = this.getRectangle();
+            r.x = pos.x - this.mBasePoint.x;
+            r.y = pos.y - this.mBasePoint.y;
+            this.setRectangle(r);
         }
         get X() {
-            return this.mRectangle.x + this.mBasePoint.x;
+            let r = this.getRectangle();
+            return r.x + this.mBasePoint.x;
         }
         set X(value) {
-            this.mRectangle.x = value - this.mBasePoint.x;
+            let r = this.getRectangle();
+            r.x = value - this.mBasePoint.x;
+            this.setRectangle(r);
         }
         get Y() {
-            return this.mRectangle.y + this.mBasePoint.y;
+            let r = this.getRectangle();
+            return r.y + this.mBasePoint.y;
         }
         set Y(value) {
-            this.mRectangle.y = value - this.mBasePoint.y;
+            let r = this.getRectangle();
+            r.y = value - this.mBasePoint.y;
+            this.setRectangle(r);
         }
         get Box() {
-            return this.mRectangle.clone();
+            return this.getRectangle().clone();
         }
         set Box(value) {
-            this.mRectangle = value.clone();
+            this.setRectangle(value.clone());
+            this.OnResized();
         }
         get size() {
-            return this.mRectangle.size;
+            let r = this.getRectangle();
+            return r.size;
         }
         set size(value) {
-            this.mRectangle.size = value;
+            let r = this.getRectangle();
+            r.size = value;
+            this.setRectangle(r);
+            this.OnResized();
         }
         get Width() {
-            return this.mRectangle.w;
+            let r = this.getRectangle();
+            return r.w;
         }
         set Width(value) {
-            this.mRectangle.w = value;
+            let r = this.getRectangle();
+            r.w = value;
+            this.setRectangle(r);
+            this.OnResized();
         }
         get Height() {
-            return this.mRectangle.h;
+            let r = this.getRectangle();
+            return r.h;
         }
         set Height(value) {
-            this.mRectangle.h = value;
+            let r = this.getRectangle();
+            r.h = value;
+            this.setRectangle(r);
+            this.OnResized();
         }
         Resize(w, h) {
-            this.mRectangle.w = w;
-            this.mRectangle.h = h;
-            this.OnResized();
+            this.size = new ftk.Size(w, h);
         }
         get Angle() {
             return this.mAngle;
@@ -876,6 +898,11 @@ var ftk;
         }
         set BasePoint(pos) {
             this.mBasePoint = pos.clone();
+        }
+        setBasePointToCenter() {
+            let r = this.getRectangle();
+            this.mBasePoint.x = r.w / 2;
+            this.mBasePoint.y = r.h / 2;
         }
         get Visible() {
             return this.mVisible;
@@ -912,7 +939,7 @@ var ftk;
             this.mAnimations = undefined;
         }
         PickTest(point) {
-            let box = this.Box;
+            let box = this.getRectangle();
             return point.x > box.x && (point.x < box.x + box.w)
                 && point.y > box.y && (point.y < box.y + box.h);
         }
@@ -921,7 +948,7 @@ var ftk;
                 rc.save();
                 let angle = this.Angle;
                 if (angle !== 0) {
-                    let box = this.Box;
+                    let box = this.getRectangle();
                     let bp = this.BasePoint;
                     let xc = box.x + bp.x;
                     let yc = box.y + bp.y;
@@ -998,12 +1025,28 @@ var ftk;
         }
     }
     ftk.Sprite = Sprite;
+    class RectangleSprite extends Sprite {
+        constructor(x, y, w, h, id) {
+            super(id);
+            this.mRectangle = new ftk.Rectangle(x, y, w, h);
+        }
+        getRectangle() {
+            return this.mRectangle;
+        }
+        setRectangle(value) {
+            if (this.mRectangle !== value) {
+                this.mRectangle = value;
+            }
+            this.mRectangle.normalize();
+        }
+    }
+    ftk.RectangleSprite = RectangleSprite;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
-    class ParticleSprite extends ftk.Sprite {
+    class ParticleSprite extends ftk.RectangleSprite {
         constructor() {
-            super();
+            super(0, 0, 0, 0);
             this.mParticles = new Array();
             this.mTicks = 0;
             this.mLastUpdateTime = 0;
@@ -1032,6 +1075,10 @@ var ftk;
         DispatchKeyboardEvent(_ev, _forced) {
         }
         OnRander(rc) {
+            let r = this.getRectangle();
+            rc.beginPath();
+            rc.rect(r.x, r.y, r.w, r.h);
+            rc.clip();
             if (this.mParticleRander) {
                 let randerHook = this.mParticleRander;
                 this.mParticles.forEach((particle) => { randerHook.call(this, rc, particle); });
@@ -1045,7 +1092,7 @@ var ftk;
             if (!this.OnUpdate()) {
                 let arr = this.mParticles;
                 for (let p of arr) {
-                    p.Update();
+                    p.Update(timestamp);
                 }
                 let j = 0;
                 for (let p of arr) {
@@ -1068,74 +1115,55 @@ var ftk;
             this.PA = pa;
             this.x = x;
             this.y = y;
-            let pt = this.randPointOnCircle(Math.random() + 1);
-            this.vx = pt.x;
-            this.vy = pt.y;
-            this.life = Math.floor(Math.random() * 20) + 40;
-            this.bounce = 0.6;
+            this.w = 0;
+            this.h = 0;
+            this.vx = 0;
+            this.vy = 0;
+            this.ax = 0;
+            this.ay = 0;
+            this.maxLife = 0;
+            this.age = 0;
+            this.exp = 0;
             this.gravity = 0.07;
             this.drag = 0.998;
+            this.birth = -1;
             this.active = true;
         }
-        Update() {
-            if (--this.life < 0) {
-                this.active = false;
+        Update(timestamp) {
+            let r = this.PA.Box;
+            if (this.active || r.isInside(this.x, this.y)) {
+                if (this.birth < 0) {
+                    this.birth = timestamp;
+                }
+                else {
+                    this.age = timestamp - this.birth;
+                }
+                if (this.age >= this.maxLife) {
+                    this.active = false;
+                }
+                this.vy += this.gravity + this.ay;
+                this.vx += this.ax;
+                if (this.drag !== 1) {
+                    this.vx *= this.drag;
+                }
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.exp !== 0) {
+                    this.w += this.exp;
+                    this.h += this.exp;
+                }
             }
-            this.vy += this.gravity;
-            this.vx *= this.drag;
-            this.x += this.vx;
-            this.y += this.vy;
-        }
-        randPointOnCircle(size) {
-            if (size == null) {
-                size = 1;
-            }
-            let x = 0.0;
-            let y = 0.0;
-            let s = 0.0;
-            do {
-                x = (Math.random() - 0.5) * 2.0;
-                y = (Math.random() - 0.5) * 2.0;
-                s = x * x + y * y;
-            } while (s > 1);
-            let scale = size / Math.sqrt(s);
-            return new ftk.Point(x * scale, y * scale);
         }
     }
     ftk.Particle = Particle;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
-    var particles;
-    (function (particles) {
-        class SpeedParticle extends ftk.Particle {
-            constructor(pa, x, y, color) {
-                super(pa, x, y);
-                this.drag = 0;
-                this.color = color;
-                this.size = Math.random() * 10;
-            }
-            Render(rc) {
-                rc.beginPath();
-                rc.fillStyle = this.color.toRGBAString();
-                rc.arc(this.x, this.y, this.size, 0, 2 * Math.PI, true);
-                rc.fill();
-            }
-            Update() {
-                super.Update();
-                this.color.A = this.life;
-            }
-        }
-        particles.SpeedParticle = SpeedParticle;
-    })(particles = ftk.particles || (ftk.particles = {}));
-})(ftk || (ftk = {}));
-var ftk;
-(function (ftk) {
     var ui;
     (function (ui) {
-        class ProgressBar extends ftk.Sprite {
+        class ProgressBar extends ftk.RectangleSprite {
             constructor(x, y, w, h, id) {
-                super(id);
+                super(x, y, w, h, id);
                 this.Position = new ftk.Point(x, y);
                 this.Resize(w, h);
                 this.mValue = 0;
@@ -1278,6 +1306,8 @@ var ftk;
             this.mEventCaptureContext = undefined;
             this.mResourceManager = new ftk.ResourceDBEditor();
             this.mFrameRate = 60;
+            this.mLastRanderDuration = 0;
+            this.DebugInfoVisible = false;
         }
         get FrameRate() { return this.mFrameRate; }
         get ViewportWidth() { return this.mCanvas.width; }
@@ -1285,6 +1315,9 @@ var ftk;
         get Root() { return this.mRootNode; }
         get R() {
             return this.mResourceManager;
+        }
+        get LastRanderDuration() {
+            return this.mLastRanderDuration;
         }
         Run() {
             this.mRC.clearRect(0, 0, this.ViewportWidth, this.ViewportHeight);
@@ -1321,6 +1354,7 @@ var ftk;
             this.Rander();
         }
         Rander() {
+            let now = Date.now();
             let root = this.Root;
             this.mOffscreenRC.save();
             root.Rander(this.mOffscreenRC);
@@ -1328,9 +1362,16 @@ var ftk;
             this.mEngineRanderEventArg.Args = this.mOffscreenRC;
             this.emit('rander', this.mEngineRanderEventArg);
             this.mRC.drawImage(this.mOffscreenCanvas, 0, 0);
+            this.mLastRanderDuration = Date.now() - now;
+            if (this.DebugInfoVisible) {
+                this.mRC.save();
+                this.DrawDebugInfo(this.mRC);
+                this.mRC.restore();
+            }
         }
         createGMouseEvent(type, ev) {
-            let gev = new ftk.GMouseEvent(this, type, ev.altKey, ev.ctrlKey, ev.shiftKey, ev.clientX, ev.clientY, ev.button, 0);
+            let rect = this.mCanvas.getBoundingClientRect();
+            let gev = new ftk.GMouseEvent(this, type, ev.altKey, ev.ctrlKey, ev.shiftKey, ev.clientX - rect.left, ev.clientY - rect.top, ev.button, 0);
             if (this.mEventCaptured) {
                 gev.CaptureContext = this.mEventCaptureContext;
             }
@@ -1402,14 +1443,12 @@ var ftk;
         }
     }
     ftk.AbstractEngine = AbstractEngine;
-    class EngineLogoSprite extends ftk.Sprite {
+    class EngineLogoSprite extends ftk.RectangleSprite {
         constructor(x, y, w, h, id) {
-            super(id);
+            super(x, y, w, h, id);
             this.mColor0 = new ftk.Color(0xff0060ff);
             this.mColor1 = new ftk.Color(0xff0000ff);
             this.mShadowBlur = 5;
-            this.Position = new ftk.Point(x, y);
-            this.Resize(w, h);
             this.BasePoint = new ftk.Point(w / 2, h / 2);
         }
         OnRander(rc) {
@@ -1502,6 +1541,7 @@ var ftk;
                     }
                 });
             }
+            this.mRanderDurationList = Array();
             this.addListener("ready", () => {
                 if (this.mBackgroundLayer) {
                     if (this.mLogo) {
@@ -1539,6 +1579,26 @@ var ftk;
         Shutdown() {
             this.emit("shutdown", new ftk.EngineEvent(this, null));
             this.R.Edit().Clear();
+        }
+        DrawDebugInfo(rc) {
+            if (this.mRanderDurationList.length >= 32) {
+                this.mRanderDurationList.shift();
+            }
+            this.mRanderDurationList.push(this.LastRanderDuration);
+            let duration = 0;
+            this.mRanderDurationList.forEach((v) => { duration += v; });
+            duration = Math.ceil(duration / this.mRanderDurationList.length);
+            rc.fillStyle = 'rgba(0,0,0,0.7)';
+            rc.strokeStyle = 'rgba(80,80,80,0.7)';
+            rc.fillRect(0, 0, 120, 70);
+            rc.strokeRect(0, 0, 120, 70);
+            rc.font = '16px serif';
+            rc.fillStyle = '#FFFFFF';
+            rc.textBaseline = 'top';
+            rc.textAlign = 'start';
+            rc.fillText('LDUT: ' + duration.toString() + ' ms', 10, 5, 120);
+            rc.fillText('RFPS: ' + Math.ceil(1000 / (duration + 1)).toString(), 10, 25, 120);
+            rc.fillText('SFPS: ' + this.FrameRate.toString(), 10, 45, 120);
         }
         _Start() {
             this.R.Edit().LoadAll((progress) => {
@@ -1721,9 +1781,12 @@ var ftk;
             this.right = value.x;
             this.bottom = value.y;
         }
-        isInside(point) {
-            return point.x > this.x && (point.x < this.x + this.w)
-                && point.y > this.y && (point.y < this.y + this.h);
+        isPointInside(point) {
+            return this.isInside(point.x, point.y);
+        }
+        isInside(x, y) {
+            return x > this.x && (x < this.x + this.w)
+                && y > this.y && (y < this.y + this.h);
         }
         isBoundary(point) {
             if (point.x > this.x && (point.x < this.x + this.w)) {
@@ -1911,6 +1974,9 @@ var ftk;
         isInLine(point) {
             return LineSegment.isInLine(point, this);
         }
+        HitTest(point, tolerance) {
+            return LineSegment.isInLineR(point, tolerance, this);
+        }
         isIntersect(l) {
             return LineSegment.isIntersect(this, l);
         }
@@ -1935,6 +2001,42 @@ var ftk;
         }
         static isInLine(point, line) {
             return LineSegment.isInLineEx(point, line.start, line.end);
+        }
+        static isInLineR(o, r, line) {
+            let a;
+            let b;
+            let c;
+            let dist1;
+            let dist2;
+            let angle1;
+            let angle2;
+            if (line.start.x === line.end.x) {
+                a = 1;
+                b = 0;
+                c = -line.start.x;
+            }
+            else if (line.start.y === line.end.y) {
+                a = 0;
+                b = 1;
+                c = -line.start.y;
+            }
+            else {
+                a = line.start.y - line.end.y;
+                b = line.end.x - line.start.x;
+                c = line.start.x * line.end.y - line.start.y * line.end.x;
+            }
+            dist1 = a * o.x + b * o.y + c;
+            dist1 *= dist1;
+            dist2 = (a * a + b * b) * r * r;
+            if (dist1 > dist2) {
+                return false;
+            }
+            angle1 = (o.x - line.start.x) * (line.end.x - line.start.x) + (o.y - line.start.y) * (line.end.y - line.start.y);
+            angle2 = (o.x - line.end.x) * (line.start.x - line.end.x) + (o.y - line.end.y) * (line.start.y - line.end.y);
+            if (angle1 > 0 && angle2 > 0) {
+                return true;
+            }
+            return false;
         }
         static isIntersect(l0, l1) {
             let a = l0.start;
@@ -2066,6 +2168,27 @@ var ftk;
                 }
             }
             return new Rectangle(left, top, right - left, bottom - top);
+        }
+        set box(value) {
+            let b = this.box;
+            let ofsx = value.x - b.x;
+            let ofsy = value.y - b.y;
+            if (value.w === b.w && value.h === b.h) {
+                for (let v of this.mVertexs) {
+                    v.x += ofsx;
+                    v.y += ofsy;
+                }
+            }
+            else {
+                let bx = b.x;
+                let by = b.y;
+                let sx = value.w / b.w;
+                let sy = value.h / b.h;
+                for (let v of this.mVertexs) {
+                    v.x = ofsx + bx + ((v.x - bx) * sx);
+                    v.y = ofsy + by + ((v.y - by) * sy);
+                }
+            }
         }
         get center() {
             return this.box.center;
@@ -2309,7 +2432,7 @@ var ftk;
                 this.setLoaded(true);
                 resolve();
             };
-            this.mImage.onerror = () => { reject(); };
+            this.mImage.onerror = (ev) => { reject(ev); };
             this.mImage.src = this.Url;
         }
     }
@@ -2331,7 +2454,7 @@ var ftk;
                 this.setLoaded(true);
                 resolve();
             };
-            this.mAudio.onerror = () => { reject(); };
+            this.mAudio.onerror = (ev) => { reject(ev); };
             this.mAudio.src = this.Url;
             this.mAudio.load();
         }
@@ -2354,7 +2477,7 @@ var ftk;
                 this.setLoaded(true);
                 resolve();
             };
-            this.mVideo.onerror = () => { reject(); };
+            this.mVideo.onerror = (ev) => { reject(ev); };
             this.mVideo.src = this.Url;
             this.mVideo.load();
         }
@@ -2376,8 +2499,8 @@ var ftk;
                 this.setLoaded(true);
                 resolve();
             };
-            xhr.onerror = () => { reject(); };
-            xhr.onabort = () => { reject(); };
+            xhr.onerror = (ev) => { reject(ev); };
+            xhr.onabort = (ev) => { reject(ev); };
             xhr.responseType = "text";
             xhr.open("GET", this.Url, true);
         }
@@ -2399,8 +2522,8 @@ var ftk;
                 this.setLoaded(true);
                 resolve();
             };
-            xhr.onerror = () => { reject(); };
-            xhr.onabort = () => { reject(); };
+            xhr.onerror = (ev) => { reject(ev); };
+            xhr.onabort = (ev) => { reject(ev); };
             xhr.responseType = "blob";
             xhr.open("GET", this.Url, true);
         }
@@ -2423,8 +2546,8 @@ var ftk;
                 this.setLoaded(true);
                 resolve();
             };
-            xhr.onerror = () => { reject(); };
-            xhr.onabort = () => { reject(); };
+            xhr.onerror = (ev) => { reject(ev); };
+            xhr.onabort = (ev) => { reject(ev); };
             xhr.responseType = "arraybuffer";
             xhr.open("GET", this.Url, true);
         }
@@ -2495,6 +2618,12 @@ var ftk;
                             p.then(() => {
                                 ++count;
                                 progressHandler((count * 100) / total);
+                            }).catch((reason) => {
+                                let msg = 'load resource [' + r.Name + '] : ';
+                                if (reason) {
+                                    msg += reason.toString();
+                                }
+                                reject(msg);
                             });
                         }
                         list.push(p);
@@ -2521,9 +2650,9 @@ var ftk;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
-    class ImageSprite extends ftk.Sprite {
+    class ImageSprite extends ftk.RectangleSprite {
         constructor(resource, w, h, id) {
-            super(id);
+            super(0, 0, 0, 0, id);
             if (resource) {
                 this.mImage = resource;
             }
@@ -2906,9 +3035,174 @@ var ftk;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
-    class VideoSprite extends ftk.Sprite {
-        constructor(resource, w, h, id) {
+    class Shape extends ftk.Sprite {
+        constructor(id) {
             super(id);
+            this.LineWidth = 1;
+            this.ForegroundColor = new ftk.Color(0, 0, 0);
+            this.BackgroundColor = new ftk.Color(0, 0, 255);
+            this.BorderColor = new ftk.Color(255, 255, 255);
+            this.Text = undefined;
+        }
+        OnRander(rc) {
+            rc.lineWidth = this.LineWidth;
+            rc.fillStyle = this.BackgroundColor.toRGBAString();
+            rc.strokeStyle = this.BorderColor.toRGBAString();
+            this.OnDrawShape(rc);
+            if (this.Text && this.Text.length > 0) {
+                rc.textAlign = 'center';
+                rc.textBaseline = 'middle';
+                rc.fillStyle = this.ForegroundColor.toRGBAString();
+                let c = this.getRectangle().center;
+                rc.fillText(this.Text, c.x, c.y);
+            }
+        }
+    }
+    ftk.Shape = Shape;
+    class LineShape extends Shape {
+        constructor(start, end, id) {
+            super(id);
+            this.mLine = new ftk.LineSegment(start, end);
+        }
+        PickTest(point) {
+            return this.mLine.HitTest(point, 5);
+        }
+        getRectangle() {
+            let r = new ftk.Rectangle(this.mLine.start, new ftk.Size(this.mLine.end.x - this.mLine.start.x, this.mLine.end.y - this.mLine.start.y));
+            r.normalize();
+            return r;
+        }
+        setRectangle(value) {
+            let r = value.clone();
+            r.normalize();
+            let s = this.mLine.start;
+            let e = this.mLine.end;
+            let p = r.rightBottom;
+            if (s.x < e.x) {
+                s.x = r.x;
+                e.x = p.x;
+            }
+            else {
+                s.x = p.x;
+                e.x = r.x;
+            }
+            if (s.y < e.y) {
+                s.y = r.y;
+                e.y = p.y;
+            }
+            else {
+                s.y = p.y;
+                e.y = r.y;
+            }
+        }
+        OnDrawShape(rc) {
+            rc.beginPath();
+            rc.moveTo(this.mLine.start.x, this.mLine.start.y);
+            rc.lineTo(this.mLine.end.x, this.mLine.end.y);
+            rc.stroke();
+        }
+    }
+    ftk.LineShape = LineShape;
+    class RectangleShape extends Shape {
+        constructor(x, y, w, h, id) {
+            super(id);
+            this.mRectangle = new ftk.Rectangle(x, y, w, h);
+        }
+        getRectangle() {
+            return this.mRectangle;
+        }
+        setRectangle(value) {
+            if (this.mRectangle !== value) {
+                this.mRectangle = value;
+            }
+            this.mRectangle.normalize();
+        }
+        OnDrawShape(rc) {
+            let r = this.getRectangle();
+            rc.fillRect(r.x, r.y, r.w, r.h);
+            rc.strokeRect(r.x, r.y, r.w, r.h);
+        }
+    }
+    ftk.RectangleShape = RectangleShape;
+    class PolygonShape extends Shape {
+        constructor(vertexs, id) {
+            super(id);
+            this.mPolygon = new ftk.Polygon(vertexs);
+        }
+        PickTest(point) {
+            return this.mPolygon.isInPolygon(point);
+        }
+        getRectangle() {
+            return this.mPolygon.box;
+        }
+        setRectangle(value) {
+            let r = value;
+            r.normalize();
+            this.mPolygon.box = r;
+        }
+        OnDrawShape(rc) {
+            rc.beginPath();
+            let first = this.mPolygon.vertexs[0];
+            rc.moveTo(first.x, first.y);
+            for (let v of this.mPolygon.vertexs) {
+                rc.lineTo(v.x, v.y);
+            }
+            rc.closePath();
+            rc.fill();
+            rc.stroke();
+        }
+    }
+    ftk.PolygonShape = PolygonShape;
+    class EPolygonShape extends PolygonShape {
+        constructor(x, y, radius, side, id) {
+            super(EPolygonShape.getVertexs(x, y, radius, side), id);
+        }
+        static getVertexs(x, y, radius, side) {
+            const astep = (Math.PI + Math.PI) / side;
+            let angle = 0;
+            let vertexs = [];
+            for (let i = 0; i < side; ++i) {
+                vertexs.push(new ftk.Point(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius));
+                angle += astep;
+            }
+            return vertexs;
+        }
+    }
+    ftk.EPolygonShape = EPolygonShape;
+    class CircleShape extends Shape {
+        constructor(x, y, radius, id) {
+            super(id);
+            this.mCircle = new ftk.Circle(x, y, radius);
+        }
+        PickTest(point) {
+            return this.mCircle.isInsideOrBoundary(point);
+        }
+        getRectangle() {
+            return this.mCircle.box;
+        }
+        setRectangle(value) {
+            let r = value;
+            r.normalize();
+            let radius = Math.min(r.w, r.h) / 2;
+            this.mCircle.center = r.center;
+            this.mCircle.radius = radius;
+        }
+        OnDrawShape(rc) {
+            let c = this.mCircle.center;
+            rc.beginPath();
+            rc.arc(c.x, c.y, this.mCircle.radius, 0, Math.PI + Math.PI);
+            rc.closePath();
+            rc.fill();
+            rc.stroke();
+        }
+    }
+    ftk.CircleShape = CircleShape;
+})(ftk || (ftk = {}));
+var ftk;
+(function (ftk) {
+    class VideoSprite extends ftk.RectangleSprite {
+        constructor(resource, w, h, id) {
+            super(0, 0, 0, 0, id);
             if (resource) {
                 this.mVideo = resource;
             }
@@ -2950,7 +3244,7 @@ var ftk;
             constructor(pa, x, y) {
                 super(pa, x, y);
                 this.hue = Math.floor(Math.random() * 360);
-                this.lifeMax = this.life;
+                this.maxLife = this.age;
                 this.drag = 0.9;
                 this.color = this.randColor();
             }
@@ -2958,8 +3252,8 @@ var ftk;
                 rc.fillStyle = this.color;
                 rc.fillRect(this.x - 1, this.y - 1, 2, 2);
             }
-            Update() {
-                super.Update();
+            Update(timestamp) {
+                super.Update(timestamp);
                 if (Math.random() < 0.5) {
                     this.color = this.randColor();
                 }
@@ -2979,16 +3273,16 @@ var ftk;
         class FireworkFlameParticle extends ftk.Particle {
             constructor(pa, x, y) {
                 super(pa, x, y);
-                this.life *= 2;
+                this.age /= 2;
             }
-            Update() {
+            Update(timestamp) {
                 let spark = new FireworkSparkParticle(this.PA, this.x, this.y);
                 spark.vx /= 10;
                 spark.vy /= 10;
                 spark.vx += this.vx / 2;
                 spark.vy += this.vy / 2;
                 this.PA.AddParticle(spark);
-                super.Update();
+                super.Update(timestamp);
             }
             Render(_rc) {
             }
@@ -2997,12 +3291,12 @@ var ftk;
         class FireworkParticle extends ftk.Particle {
             constructor(pa, x, y) {
                 super(pa, x, y);
-                this.lifeMax = 5;
-                this.life = this.lifeMax;
+                this.maxLife = 5;
+                this.age = 0;
             }
-            Update() {
-                super.Update();
-                let bits = Math.ceil(this.life * 10 / this.lifeMax);
+            Update(timestamp) {
+                super.Update(timestamp);
+                let bits = Math.ceil(this.age * 10 / this.maxLife);
                 for (let i = 0; i < bits; ++i) {
                     let flame = new FireworkFlameParticle(this.PA, this.x, this.y);
                     flame.vy *= 1.5;
@@ -3087,6 +3381,22 @@ var ftk;
             }
         }
         ui.ImageButton = ImageButton;
+    })(ui = ftk.ui || (ftk.ui = {}));
+})(ftk || (ftk = {}));
+var ftk;
+(function (ftk) {
+    var ui;
+    (function (ui) {
+        class Panel extends ftk.RectangleShape {
+            OnRander(rc) {
+                rc.shadowBlur = 3;
+                rc.shadowColor = this.BorderColor.toRGBAString();
+                rc.shadowOffsetX = 2;
+                rc.shadowOffsetY = 2;
+                super.OnRander(rc);
+            }
+        }
+        ui.Panel = Panel;
     })(ui = ftk.ui || (ftk.ui = {}));
 })(ftk || (ftk = {}));
 //# sourceMappingURL=ftk.js.map

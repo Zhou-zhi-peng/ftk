@@ -164,9 +164,13 @@ namespace ftk {
             this.bottom = value.y;
         }
 
-        public isInside(point: Point): boolean {
-            return point.x > this.x && (point.x < this.x + this.w)
-                && point.y > this.y && (point.y < this.y + this.h);
+        public isPointInside(point: Point): boolean {
+            return this.isInside(point.x, point.y);
+        }
+
+        public isInside(x: number, y: number): boolean {
+            return x > this.x && (x < this.x + this.w)
+                && y > this.y && (y < this.y + this.h);
         }
 
         public isBoundary(point: Point): boolean {
@@ -369,6 +373,12 @@ namespace ftk {
             return LineSegment.isInLine(point, this);
         }
 
+
+        public HitTest(point: Point, tolerance: number) {
+            return LineSegment.isInLineR(point, tolerance, this);
+        }
+
+
         public isIntersect(l: LineSegment): boolean {
             return LineSegment.isIntersect(this, l);
         }
@@ -405,6 +415,41 @@ namespace ftk {
 
         public static isInLine(point: Point, line: LineSegment): boolean {
             return LineSegment.isInLineEx(point, line.start, line.end);
+        }
+        public static isInLineR(o: Point, r: number, line: LineSegment) {
+            let a: number;
+            let b: number;
+            let c: number;
+            let dist1: number;
+            let dist2: number;
+            let angle1: number;
+            let angle2: number;
+
+            if (line.start.x === line.end.x) {
+                a = 1;
+                b = 0;
+                c = -line.start.x;
+            } else if (line.start.y === line.end.y) {
+                a = 0;
+                b = 1;
+                c = -line.start.y;
+            } else {
+                a = line.start.y - line.end.y;
+                b = line.end.x - line.start.x;
+                c = line.start.x * line.end.y - line.start.y * line.end.x;
+            }
+            dist1 = a * o.x + b * o.y + c;
+            dist1 *= dist1;
+            dist2 = (a * a + b * b) * r * r;
+            if (dist1 > dist2) {
+                return false;
+            }
+            angle1 = (o.x - line.start.x) * (line.end.x - line.start.x) + (o.y - line.start.y) * (line.end.y - line.start.y);
+            angle2 = (o.x - line.end.x) * (line.start.x - line.end.x) + (o.y - line.end.y) * (line.start.y - line.end.y);
+            if (angle1 > 0 && angle2 > 0) {
+                return true;
+            }
+            return false;
         }
 
         public static isIntersect(l0: LineSegment, l1: LineSegment): boolean {
@@ -558,6 +603,28 @@ namespace ftk {
                 }
             }
             return new Rectangle(left, top, right - left, bottom - top);
+        }
+
+        public set box(value: Rectangle) {
+            let b = this.box;
+            let ofsx = value.x - b.x;
+            let ofsy = value.y - b.y;
+
+            if (value.w === b.w && value.h === b.h) {
+                for (let v of this.mVertexs) {
+                    v.x += ofsx;
+                    v.y += ofsy;
+                }
+            } else {
+                let bx = b.x;
+                let by = b.y;
+                let sx = value.w / b.w;
+                let sy = value.h / b.h;
+                for (let v of this.mVertexs) {
+                    v.x = ofsx + bx + ((v.x - bx) * sx);
+                    v.y = ofsy + by + ((v.y - by) * sy);
+                }
+            }
         }
 
         public get center(): Point {

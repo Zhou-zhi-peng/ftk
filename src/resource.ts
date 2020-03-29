@@ -54,7 +54,7 @@ namespace ftk {
             this.mLoaded = value;
         }
 
-        protected abstract OnLoad(resolve: () => void, reject: () => void): void;
+        protected abstract OnLoad(resolve: () => void, reject: (reason: any) => void): void;
     }
 
     export class ImageResource extends Resource {
@@ -68,12 +68,12 @@ namespace ftk {
         public get Image(): HTMLImageElement {
             return this.mImage;
         }
-        protected OnLoad(resolve: () => void, reject: () => void): void {
+        protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
             this.mImage.onload = () => {
                 this.setLoaded(true);
                 resolve();
             };
-            this.mImage.onerror = () => { reject(); };
+            this.mImage.onerror = (ev) => { reject(ev); };
             this.mImage.src = this.Url;
         }
     }
@@ -92,12 +92,12 @@ namespace ftk {
         public get Audio(): HTMLAudioElement {
             return this.mAudio;
         }
-        protected OnLoad(resolve: () => void, reject: () => void): void {
+        protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
             this.mAudio.oncanplaythrough = () => {
                 this.setLoaded(true);
                 resolve();
             };
-            this.mAudio.onerror = () => { reject(); };
+            this.mAudio.onerror = (ev) => { reject(ev); };
             this.mAudio.src = this.Url;
             this.mAudio.load();
         }
@@ -117,12 +117,12 @@ namespace ftk {
         public get Video(): HTMLVideoElement {
             return this.mVideo;
         }
-        protected OnLoad(resolve: () => void, reject: () => void): void {
+        protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
             this.mVideo.oncanplay = () => {
                 this.setLoaded(true);
                 resolve();
             };
-            this.mVideo.onerror = () => { reject(); };
+            this.mVideo.onerror = (ev) => { reject(ev); };
             this.mVideo.src = this.Url;
             this.mVideo.load();
         }
@@ -139,15 +139,15 @@ namespace ftk {
         public get Text(): string {
             return this.mData;
         }
-        protected OnLoad(resolve: () => void, reject: () => void): void {
+        protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
             let xhr = new XMLHttpRequest();
             xhr.onload = () => {
                 this.mData = xhr.responseText;
                 this.setLoaded(true);
                 resolve();
             };
-            xhr.onerror = () => { reject(); };
-            xhr.onabort = () => { reject(); };
+            xhr.onerror = (ev) => { reject(ev); };
+            xhr.onabort = (ev) => { reject(ev); };
 
             xhr.responseType = "text";
             xhr.open("GET", this.Url, true);
@@ -165,15 +165,15 @@ namespace ftk {
         public get Data(): Blob {
             return this.mData;
         }
-        protected OnLoad(resolve: () => void, reject: () => void): void {
+        protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
             let xhr = new XMLHttpRequest();
             xhr.onload = () => {
                 this.mData = xhr.response;
                 this.setLoaded(true);
                 resolve();
             };
-            xhr.onerror = () => { reject(); };
-            xhr.onabort = () => { reject(); };
+            xhr.onerror = (ev) => { reject(ev); };
+            xhr.onabort = (ev) => { reject(ev); };
 
             xhr.responseType = "blob";
             xhr.open("GET", this.Url, true);
@@ -191,7 +191,7 @@ namespace ftk {
         public get Data(): ArrayBuffer {
             return this.mData;
         }
-        protected OnLoad(resolve: () => void, reject: () => void): void {
+        protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
             let xhr = new XMLHttpRequest();
             xhr.onload = () => {
                 let buffer = xhr.response as ArrayBuffer;
@@ -199,8 +199,8 @@ namespace ftk {
                 this.setLoaded(true);
                 resolve();
             };
-            xhr.onerror = () => { reject(); };
-            xhr.onabort = () => { reject(); };
+            xhr.onerror = (ev) => { reject(ev); };
+            xhr.onabort = (ev) => { reject(ev); };
 
             xhr.responseType = "arraybuffer";
             xhr.open("GET", this.Url, true);
@@ -292,6 +292,12 @@ namespace ftk {
                             p.then(() => {
                                 ++count;
                                 progressHandler((count * 100) / total);
+                            }).catch((reason) => {
+                                let msg = 'load resource [' + r.Name + '] : ';
+                                if (reason) {
+                                    msg += reason.toString();
+                                }
+                                reject(msg);
                             });
                         }
                         list.push(p);

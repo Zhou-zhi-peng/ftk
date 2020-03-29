@@ -6,12 +6,14 @@ namespace ftk {
         private mVideo: VideoResource;
         constructor(resource?: VideoResource, w?: number, h?: number, id?: string) {
             super(id);
-            if (resource)
+            if (resource) {
                 this.mVideo = resource;
-            else
+            }
+            else {
                 this.mVideo = new VideoResource("");
+            }
             if (w && h) {
-                this.Resize(w,h);
+                this.Resize(w, h);
             } else {
                 this.Resize(this.mVideo.Video.videoWidth, this.mVideo.Video.videoHeight);
             }
@@ -23,6 +25,14 @@ namespace ftk {
 
         public set Resource(value: VideoResource) {
             this.mVideo = value;
+        }
+
+        public Play(): void {
+            this.Resource.Video.play();
+        }
+
+        public Pause(): void {
+            this.Resource.Video.pause();
         }
 
         protected OnRander(rc: CanvasRenderingContext2D): void {
@@ -38,14 +48,6 @@ namespace ftk {
                 box.y,
                 box.w,
                 box.h);
-        }
-
-        public Play():void{
-            this.Resource.Video.play();
-        }
-
-        public Pause():void{
-            this.Resource.Video.pause();
         }
     }
 }

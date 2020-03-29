@@ -12,8 +12,9 @@ var ftk;
             this.mStartTime = 0;
             this.mEndTime = 0;
             this.mFirstFrame = true;
-            if (autostart)
+            if (autostart) {
                 this.Start();
+            }
         }
         get Playing() { return this.mPlaying; }
         Start() {
@@ -30,8 +31,9 @@ var ftk;
             this.mFirstFrame = true;
         }
         Update(timestamp, target) {
-            if (!this.Playing)
+            if (!this.Playing) {
                 return;
+            }
             if (this.mFirstFrame) {
                 this.mStartTime = timestamp;
                 this.mEndTime = timestamp + this.Duration;
@@ -45,8 +47,9 @@ var ftk;
                         this.mStartTime = timestamp;
                         this.mEndTime = timestamp + this.Duration;
                     }
-                    else
+                    else {
                         this.Stop();
+                    }
                 }
                 else {
                     let count = timestamp - this.mStartTime;
@@ -152,10 +155,10 @@ var ftk;
             this.Loop = loop ? loop : false;
             this.mFrames = new Array();
             this.mCurrentFrame = 0;
-            if (autostart)
+            if (autostart) {
                 this.Start();
+            }
         }
-        ;
         get Playing() { return this.mPlaying; }
         Start() {
             if (!this.mPlaying) {
@@ -179,11 +182,13 @@ var ftk;
             this.mFrames = new Array();
         }
         Update(timestamp, target) {
-            if (!this.Playing && this.mFrames.length == 0)
+            if (!this.Playing && this.mFrames.length == 0) {
                 return;
+            }
             let animation = this.mFrames[this.mCurrentFrame];
-            if (!animation.Playing)
+            if (!animation.Playing) {
                 animation.Start();
+            }
             animation.Loop = false;
             animation.Update(timestamp, target);
             if (!animation.Playing) {
@@ -207,8 +212,9 @@ var ftk;
             this.m_g = 0;
             this.m_b = 0;
             this.m_a = 1.0;
-            if (typeof (arg1) === "string")
+            if (typeof (arg1) === "string") {
                 this.parseString(arg1);
+            }
             else if ((typeof (arg1) === "number") && (typeof (arg2) === "number") && (typeof (arg3) === "number")) {
                 this.m_r = arg1 & 0xFF;
                 this.m_g = arg2 & 0xFF;
@@ -234,6 +240,115 @@ var ftk;
         Clone() {
             return new Color(this.R, this.G, this.B, this.A);
         }
+        addLightness(value) {
+            this.R = this.m_r + value;
+            this.G = this.m_g + value;
+            this.B = this.m_b + value;
+        }
+        blend(value, alpha) {
+            alpha = Color.ClampedColorValue(alpha);
+            this.R = (this.m_r * (1 - alpha)) + (value.R * alpha);
+            this.G = (this.m_g * (1 - alpha)) + (value.G * alpha);
+            this.B = (this.m_b * (1 - alpha)) + (value.B * alpha);
+            this.A = (this.m_a * (1 - alpha)) + (value.A * alpha);
+        }
+        grayscale() {
+            let x = Color.ClampedColorValue((this.m_r + this.m_g + this.m_b) / 3);
+            this.m_r = x;
+            this.m_g = x;
+            this.m_b = x;
+        }
+        inverse() {
+            this.m_r = 0xFF - this.m_r;
+            this.m_g = 0xFF - this.m_g;
+            this.m_b = 0xFF - this.m_b;
+        }
+        get R() {
+            return this.m_r;
+        }
+        set R(value) {
+            this.m_r = Color.ClampedColorValue(value);
+        }
+        get G() {
+            return this.m_g;
+        }
+        set G(value) {
+            this.m_g = Color.ClampedColorValue(value);
+        }
+        get B() {
+            return this.m_b;
+        }
+        set B(value) {
+            this.m_b = Color.ClampedColorValue(value);
+        }
+        get A() {
+            return this.m_a;
+        }
+        set A(value) {
+            this.m_a = Color.ClampedAlphaValue(value);
+        }
+        get Luminance() {
+            return (this.m_r * 0.2126) + (this.m_g * 0.7152) + (this.m_b * 0.0722);
+        }
+        get RGBValue() {
+            return (this.m_r << 16) | (this.m_g << 8) | (this.m_b);
+        }
+        get RGBAValue() {
+            return (this.m_r << 24) | (this.m_g << 16) | (this.m_b << 8) | (Math.round(this.m_a * 255));
+        }
+        toRGBString() {
+            return "rgb(" + this.m_r.toString() + "," + this.m_g.toString() + "," + this.m_b.toString() + ")";
+        }
+        toRGBAString() {
+            return "rgba(" + this.m_r.toString() + "," + this.m_g.toString() + "," + this.m_b.toString() + "," + this.m_a.toString() + ")";
+        }
+        toHEXString(alpha) {
+            let rs = "#";
+            rs += this.pad((this.m_r & 0xFF).toString(16).toUpperCase(), 2);
+            rs += this.pad((this.m_g & 0xFF).toString(16).toUpperCase(), 2);
+            rs += this.pad((this.m_b & 0xFF).toString(16).toUpperCase(), 2);
+            if (alpha) {
+                rs += this.pad((Math.round(this.m_a * 255) & 0xFF).toString(16).toUpperCase(), 2);
+            }
+            return rs;
+        }
+        toString() {
+            return this.toRGBAString();
+        }
+        toNumber() {
+            return (this.m_r << 16)
+                | (this.m_g << 8)
+                | this.m_b
+                | (((this.m_a * 255) & 0xFF) << 24);
+        }
+        static ClampedColorValue(value) {
+            if (value > 0xFF) {
+                return 0xFF;
+            }
+            else if (value < 0) {
+                return 0;
+            }
+            return Math.round(value);
+        }
+        static ClampedAlphaValue(value) {
+            return Math.min(Math.max(value, 0.0), 1.0);
+        }
+        static blend(x, y, alpha) {
+            alpha = Color.ClampedColorValue(alpha);
+            let r = (x.m_r * (1 - alpha)) + (y.m_r * alpha);
+            let g = (x.m_g * (1 - alpha)) + (y.m_g * alpha);
+            let b = (x.m_b * (1 - alpha)) + (y.m_b * alpha);
+            let a = (x.m_a * (1 - alpha)) + (y.m_a * alpha);
+            return new Color(r, g, b, a);
+        }
+        pad(val, len) {
+            let padded = [];
+            for (let i = 0, j = Math.max(len - val.length, 0); i < j; i++) {
+                padded.push('0');
+            }
+            padded.push(val);
+            return padded.join('');
+        }
         parseString(value) {
             let color = value.toUpperCase();
             if (color.startsWith("#")) {
@@ -257,120 +372,14 @@ var ftk;
                 color = color.substr(start, end - start);
                 let colors = color.split(',');
                 if (colors.length >= 3) {
-                    this.m_r = parseInt(colors[0].trim()) & 0xFF;
-                    this.m_g = parseInt(colors[1].trim()) & 0xFF;
-                    this.m_b = parseInt(colors[2].trim()) & 0xFF;
+                    this.m_r = parseInt(colors[0].trim(), 10) & 0xFF;
+                    this.m_g = parseInt(colors[1].trim(), 10) & 0xFF;
+                    this.m_b = parseInt(colors[2].trim(), 10) & 0xFF;
                     if (colors.length >= 4) {
                         this.m_a = Color.ClampedAlphaValue(parseFloat(colors[3].trim()));
                     }
                 }
             }
-        }
-        static ClampedColorValue(value) {
-            if (value > 0xFF)
-                return 0xFF;
-            else if (value < 0)
-                return 0;
-            return Math.round(value);
-        }
-        static ClampedAlphaValue(value) {
-            return Math.min(Math.max(value, 0.0), 1.0);
-        }
-        addLightness(value) {
-            this.R = this.m_r + value;
-            this.G = this.m_g + value;
-            this.B = this.m_b + value;
-        }
-        static blend(x, y, alpha) {
-            alpha = Color.ClampedColorValue(alpha);
-            let r = (x.m_r * (1 - alpha)) + (y.m_r * alpha);
-            let g = (x.m_g * (1 - alpha)) + (y.m_g * alpha);
-            let b = (x.m_b * (1 - alpha)) + (y.m_b * alpha);
-            let a = (x.m_a * (1 - alpha)) + (y.m_a * alpha);
-            return new Color(r, g, b, a);
-        }
-        blend(value, alpha) {
-            alpha = Color.ClampedColorValue(alpha);
-            this.R = (this.m_r * (1 - alpha)) + (value.R * alpha);
-            this.G = (this.m_g * (1 - alpha)) + (value.G * alpha);
-            this.B = (this.m_b * (1 - alpha)) + (value.B * alpha);
-            this.A = (this.m_a * (1 - alpha)) + (value.A * alpha);
-        }
-        grayscale() {
-            let x = Color.ClampedColorValue((this.m_r + this.m_g + this.m_b) / 3);
-            this.m_r = x;
-            this.m_g = x;
-            this.m_b = x;
-        }
-        inverse() {
-            this.m_r = 0xFF - this.m_r;
-            this.m_g = 0xFF - this.m_g;
-            this.m_b = 0xFF - this.m_b;
-        }
-        get R() {
-            return this.m_r;
-        }
-        get G() {
-            return this.m_g;
-        }
-        get B() {
-            return this.m_b;
-        }
-        get A() {
-            return this.m_a;
-        }
-        get Luminance() {
-            return (this.m_r * 0.2126) + (this.m_g * 0.7152) + (this.m_b * 0.0722);
-        }
-        set R(value) {
-            this.m_r = Color.ClampedColorValue(value);
-        }
-        set G(value) {
-            this.m_g = Color.ClampedColorValue(value);
-        }
-        set B(value) {
-            this.m_b = Color.ClampedColorValue(value);
-        }
-        set A(value) {
-            this.m_a = Color.ClampedAlphaValue(value);
-        }
-        get RGBValue() {
-            return (this.m_r << 16) | (this.m_g << 8) | (this.m_b);
-        }
-        get RGBAValue() {
-            return (this.m_r << 24) | (this.m_g << 16) | (this.m_b << 8) | (Math.round(this.m_a * 255));
-        }
-        toRGBString() {
-            return "rgb(" + this.m_r + "," + this.m_g + "," + this.m_b + ")";
-        }
-        toRGBAString() {
-            return "rgba(" + this.m_r + "," + this.m_g + "," + this.m_b + "," + this.m_a + ")";
-        }
-        pad(val, len) {
-            let padded = [];
-            for (var i = 0, j = Math.max(len - val.length, 0); i < j; i++) {
-                padded.push('0');
-            }
-            padded.push(val);
-            return padded.join('');
-        }
-        toHEXString(alpha) {
-            let rs = "#";
-            rs += this.pad((this.m_r & 0xFF).toString(16).toUpperCase(), 2);
-            rs += this.pad((this.m_g & 0xFF).toString(16).toUpperCase(), 2);
-            rs += this.pad((this.m_b & 0xFF).toString(16).toUpperCase(), 2);
-            if (alpha)
-                rs += this.pad((Math.round(this.m_a * 255) & 0xFF).toString(16).toUpperCase(), 2);
-            return rs;
-        }
-        toString() {
-            return this.toRGBAString();
-        }
-        toNumber() {
-            return (this.m_r << 16)
-                | (this.m_g << 8)
-                | this.m_b
-                | (((this.m_a * 255) & 0xFF) << 24);
         }
     }
     ftk.Color = Color;
@@ -569,9 +578,9 @@ var ftk;
         }
         utility.GenerateIDString = GenerateIDString;
         function UTF8BufferEncodeLength(input) {
-            var output = 0;
-            for (var i = 0; i < input.length; i++) {
-                var charCode = input.charCodeAt(i);
+            let output = 0;
+            for (let i = 0; i < input.length; i++) {
+                let charCode = input.charCodeAt(i);
                 if (charCode > 0x7FF) {
                     if (0xD800 <= charCode && charCode <= 0xDBFF) {
                         i++;
@@ -579,10 +588,12 @@ var ftk;
                     }
                     output += 3;
                 }
-                else if (charCode > 0x7F)
+                else if (charCode > 0x7F) {
                     output += 2;
-                else
+                }
+                else {
                     output++;
+                }
             }
             return output;
         }
@@ -591,10 +602,10 @@ var ftk;
             let buffer = new ArrayBuffer(UTF8BufferEncodeLength(input));
             let output = new Uint8Array(buffer);
             let pos = 0;
-            for (var i = 0; i < input.length; i++) {
-                var charCode = input.charCodeAt(i);
+            for (let i = 0; i < input.length; i++) {
+                let charCode = input.charCodeAt(i);
                 if (0xD800 <= charCode && charCode <= 0xDBFF) {
-                    var lowCharCode = input.charCodeAt(++i);
+                    let lowCharCode = input.charCodeAt(++i);
                     charCode = ((charCode - 0xD800) << 10) + (lowCharCode - 0xDC00) + 0x10000;
                 }
                 if (charCode <= 0x7F) {
@@ -620,38 +631,48 @@ var ftk;
         }
         utility.UTF8BufferEncode = UTF8BufferEncode;
         function UTF8BufferDecode(buffer, offset, length) {
-            var output = "";
-            var utf16;
-            var pos = 0;
-            if (!offset)
+            let output = "";
+            let utf16;
+            let pos = 0;
+            if (!offset) {
                 offset = 0;
-            if (!length)
+            }
+            if (!length) {
                 length = buffer.byteLength;
-            var input = new Uint8Array(buffer, offset, length);
+            }
+            let input = new Uint8Array(buffer, offset, length);
             while (pos < length) {
-                var byte1 = input[pos++];
-                if (byte1 < 128)
+                let byte1 = input[pos++];
+                if (byte1 < 128) {
                     utf16 = byte1;
+                }
                 else {
-                    var byte2 = input[pos++] - 128;
-                    if (byte2 < 0)
+                    let byte2 = input[pos++] - 128;
+                    if (byte2 < 0) {
                         byte2 = 0;
-                    if (byte1 < 0xE0)
+                    }
+                    if (byte1 < 0xE0) {
                         utf16 = 64 * (byte1 - 0xC0) + byte2;
+                    }
                     else {
-                        var byte3 = input[pos++] - 128;
-                        if (byte3 < 0)
+                        let byte3 = input[pos++] - 128;
+                        if (byte3 < 0) {
                             byte3 = 0;
-                        if (byte1 < 0xF0)
+                        }
+                        if (byte1 < 0xF0) {
                             utf16 = 4096 * (byte1 - 0xE0) + 64 * byte2 + byte3;
+                        }
                         else {
-                            var byte4 = input[pos++] - 128;
-                            if (byte4 < 0)
+                            let byte4 = input[pos++] - 128;
+                            if (byte4 < 0) {
                                 byte4 = 0;
-                            if (byte1 < 0xF8)
+                            }
+                            if (byte1 < 0xF8) {
                                 utf16 = 262144 * (byte1 - 0xF0) + 4096 * byte2 + 64 * byte3 + byte4;
-                            else
+                            }
+                            else {
                                 utf16 = '?'.charCodeAt(0);
+                            }
                         }
                     }
                 }
@@ -707,9 +728,9 @@ var ftk;
             return this;
         }
         GetLayer(id) {
-            for (let i = 0; i < this.mLayerList.length; ++i) {
-                if (this.mLayerList[i].Id === id) {
-                    return this.mLayerList[i];
+            for (let l of this.mLayerList) {
+                if (l.Id === id) {
+                    return l;
                 }
             }
             return undefined;
@@ -729,35 +750,35 @@ var ftk;
             this.mLayerList.push(layer);
         }
         DispatchTouchEvent(ev, forced) {
-            let values = this.mLayerList;
-            for (let i = 0; i < values.length; ++i) {
-                values[i].DispatchTouchEvent(ev, forced);
-                if (ev.StopPropagation)
+            for (let l of this.mLayerList) {
+                l.DispatchTouchEvent(ev, forced);
+                if (ev.StopPropagation) {
                     break;
+                }
             }
         }
         DispatchMouseEvent(ev, forced) {
-            let values = this.mLayerList;
-            for (let i = 0; i < values.length; ++i) {
-                values[i].DispatchMouseEvent(ev, forced);
-                if (ev.StopPropagation)
+            for (let l of this.mLayerList) {
+                l.DispatchMouseEvent(ev, forced);
+                if (ev.StopPropagation) {
                     break;
+                }
             }
         }
         DispatchKeyboardEvent(ev, forced) {
-            let values = this.mLayerList;
-            for (let i = 0; i < values.length; ++i) {
-                values[i].DispatchKeyboardEvent(ev, forced);
-                if (ev.StopPropagation)
+            for (let l of this.mLayerList) {
+                l.DispatchKeyboardEvent(ev, forced);
+                if (ev.StopPropagation) {
                     break;
+                }
             }
         }
         DispatchNoticeEvent(ev, forced) {
-            let values = this.mLayerList;
-            for (let i = 0; i < values.length; ++i) {
-                values[i].DispatchNoticeEvent(ev, forced);
-                if (ev.StopPropagation)
+            for (let l of this.mLayerList) {
+                l.DispatchNoticeEvent(ev, forced);
+                if (ev.StopPropagation) {
                     break;
+                }
             }
         }
         Update(timestamp) {
@@ -833,8 +854,6 @@ var ftk;
         set Height(value) {
             this.mRectangle.h = value;
         }
-        OnResized() {
-        }
         Resize(w, h) {
             this.mRectangle.w = w;
             this.mRectangle.h = h;
@@ -865,18 +884,21 @@ var ftk;
             this.mVisible = value;
         }
         get Animations() {
-            if (this.mAnimations)
+            if (this.mAnimations) {
                 return this.mAnimations;
+            }
             return [];
         }
         AddAnimation(animation) {
-            if (!this.mAnimations)
+            if (!this.mAnimations) {
                 this.mAnimations = new Array();
+            }
             this.mAnimations.push(animation);
         }
         RemoveAnimation(animation) {
-            if (!this.mAnimations)
+            if (!this.mAnimations) {
                 return false;
+            }
             let r = false;
             for (let i = 0; i < this.mAnimations.length; ++i) {
                 if (this.mAnimations[i] === animation) {
@@ -920,25 +942,6 @@ var ftk;
                 rc.restore();
             }
         }
-        OnUpdate(_timestamp) {
-        }
-        OnDispatchTouchEvent(_ev, _forced) {
-        }
-        OnDispatchMouseEvent(_ev, _forced) {
-        }
-        OnDispatchKeyboardEvent(_ev, _forced) {
-        }
-        OnDispatchNoticeEvent(_ev, _forced) {
-        }
-        GetMouseEventPoint(ev) {
-            let angle = this.Angle;
-            let pt = new ftk.Point(ev.x, ev.y);
-            if (angle === 0) {
-                return pt;
-            }
-            pt.rotate(-angle, this.Position);
-            return pt;
-        }
         DispatchTouchEvent(ev, forced) {
             if (this.mVisible && (forced
                 || this.PickTest(this.GetMouseEventPoint(ev.ChangedTouches[0])))) {
@@ -966,11 +969,32 @@ var ftk;
         Update(timestamp) {
             if (this.mAnimations) {
                 let anis = this.mAnimations;
-                for (let i = 0; i < anis.length; ++i) {
-                    anis[i].Update(timestamp, this);
+                for (let a of anis) {
+                    a.Update(timestamp, this);
                 }
             }
             this.OnUpdate(timestamp);
+        }
+        OnResized() {
+        }
+        OnUpdate(_timestamp) {
+        }
+        OnDispatchTouchEvent(_ev, _forced) {
+        }
+        OnDispatchMouseEvent(_ev, _forced) {
+        }
+        OnDispatchKeyboardEvent(_ev, _forced) {
+        }
+        OnDispatchNoticeEvent(_ev, _forced) {
+        }
+        GetMouseEventPoint(ev) {
+            let angle = this.Angle;
+            let pt = new ftk.Point(ev.x, ev.y);
+            if (angle === 0) {
+                return pt;
+            }
+            pt.rotate(-angle, this.Position);
+            return pt;
         }
     }
     ftk.Sprite = Sprite;
@@ -1016,20 +1040,17 @@ var ftk;
                 this.mParticles.forEach((particle) => { particle.Render(rc); });
             }
         }
-        OnUpdate() {
-            return false;
-        }
         Update(timestamp) {
             this.mUpdateTime = timestamp;
             if (!this.OnUpdate()) {
                 let arr = this.mParticles;
-                for (var i = 0; i < arr.length; ++i) {
-                    arr[i].Update();
+                for (let p of arr) {
+                    p.Update();
                 }
-                var j = 0;
-                for (var i = 0; i < arr.length; ++i) {
-                    if (arr[i].active) {
-                        arr[j++] = arr[i];
+                let j = 0;
+                for (let p of arr) {
+                    if (p.active) {
+                        arr[j++] = p;
                     }
                 }
                 arr.length = j;
@@ -1037,11 +1058,14 @@ var ftk;
             ++this.mTicks;
             this.mLastUpdateTime = timestamp;
         }
+        OnUpdate() {
+            return false;
+        }
     }
     ftk.ParticleSprite = ParticleSprite;
     class Particle {
         constructor(pa, x, y) {
-            this.mPA = pa;
+            this.PA = pa;
             this.x = x;
             this.y = y;
             let pt = this.randPointOnCircle(Math.random() + 1);
@@ -1052,9 +1076,6 @@ var ftk;
             this.gravity = 0.07;
             this.drag = 0.998;
             this.active = true;
-        }
-        get PA() {
-            return this.mPA;
         }
         Update() {
             if (--this.life < 0) {
@@ -1069,15 +1090,15 @@ var ftk;
             if (size == null) {
                 size = 1;
             }
-            var x = 0.0;
-            var y = 0.0;
-            var s = 0.0;
+            let x = 0.0;
+            let y = 0.0;
+            let s = 0.0;
             do {
                 x = (Math.random() - 0.5) * 2.0;
                 y = (Math.random() - 0.5) * 2.0;
                 s = x * x + y * y;
             } while (s > 1);
-            var scale = size / Math.sqrt(s);
+            let scale = size / Math.sqrt(s);
             return new ftk.Point(x * scale, y * scale);
         }
     }
@@ -1125,26 +1146,30 @@ var ftk;
                 return this.mValue;
             }
             set Value(value) {
-                if (value < this.mMin)
+                if (value < this.mMin) {
                     value = this.mMin;
-                if (value > this.mMax)
+                }
+                if (value > this.mMax) {
                     value = this.mMax;
+                }
                 this.mValue = value;
             }
             get MaxValue() {
                 return this.mMax;
             }
             set MaxValue(value) {
-                if (value < this.mMin)
+                if (value < this.mMin) {
                     value = this.mMin;
+                }
                 this.mMax = value;
             }
             get MinValue() {
                 return this.mMin;
             }
             set MinValue(value) {
-                if (value > this.mMax)
+                if (value > this.mMax) {
                     value = this.mMax;
+                }
                 this.mMin = value;
             }
         }
@@ -1173,7 +1198,7 @@ var ftk;
                 rc.arc(xc, yc, r, 0, end);
                 rc.strokeStyle = this.Color.toRGBAString();
                 rc.stroke();
-                var percentage = Math.floor(this.Value) + '%';
+                let percentage = Math.floor(this.Value).toString() + '%';
                 rc.textAlign = "center";
                 rc.textBaseline = "middle";
                 rc.font = (r / 3).toFixed(0) + "px bold Arial";
@@ -1214,7 +1239,7 @@ var ftk;
                 else {
                     rc.fillRect(box.x, box.y + (box.h - end), box.w, end);
                 }
-                var percentage = Math.floor(this.Value) + '%';
+                let percentage = Math.floor(this.Value).toString() + '%';
                 rc.textAlign = "center";
                 rc.textBaseline = "middle";
                 rc.font = (Math.min(box.w, box.h) * 0.8).toFixed(0) + "px bold Arial";
@@ -1244,7 +1269,9 @@ var ftk;
             canvas.addEventListener("mouseup", (ev) => { this.OnMouseUp(ev); });
             canvas.addEventListener("mousemove", (ev) => { this.OnMouseMove(ev); });
             this.mCanvas = canvas;
-            this.mRC = canvas.getContext("2d");
+            this.mRC = canvas.getContext("2d", { alpha: false });
+            this.mOffscreenCanvas = AbstractEngine.createOffscreenCanvas(this.mCanvas.width, this.mCanvas.height);
+            this.mOffscreenRC = this.mOffscreenCanvas.getContext("2d", { alpha: false });
             this.mRootNode = new ftk.Stage(canvas.width, canvas.height);
             this.mEventPrevTarget = null;
             this.mEventCaptured = false;
@@ -1253,7 +1280,6 @@ var ftk;
             this.mFrameRate = 60;
         }
         get FrameRate() { return this.mFrameRate; }
-        setFrameRate(value) { this.mFrameRate = value; }
         get ViewportWidth() { return this.mCanvas.width; }
         get ViewportHeight() { return this.mCanvas.height; }
         get Root() { return this.mRootNode; }
@@ -1274,6 +1300,7 @@ var ftk;
             this.emit(name, ev);
             return undefined;
         }
+        setFrameRate(value) { this.mFrameRate = value; }
         StartLoop() {
             let lastUpdateTime = 0;
             let looper = (timestamp) => {
@@ -1295,10 +1322,12 @@ var ftk;
         }
         Rander() {
             let root = this.Root;
-            this.mRC.save();
-            root.Rander(this.mRC);
-            this.mEngineRanderEventArg.Args = this.mRC;
-            this.mRC.restore();
+            this.mOffscreenRC.save();
+            root.Rander(this.mOffscreenRC);
+            this.mOffscreenRC.restore();
+            this.mEngineRanderEventArg.Args = this.mOffscreenRC;
+            this.emit('rander', this.mEngineRanderEventArg);
+            this.mRC.drawImage(this.mOffscreenCanvas, 0, 0);
         }
         createGMouseEvent(type, ev) {
             let gev = new ftk.GMouseEvent(this, type, ev.altKey, ev.ctrlKey, ev.shiftKey, ev.clientX, ev.clientY, ev.button, 0);
@@ -1357,6 +1386,19 @@ var ftk;
         }
         OnMouseMove(ev) {
             this.OnMouseEvent(ftk.InputEventType.MouseMove, ev);
+        }
+        static createOffscreenCanvas(width, height) {
+            let globalThis = window;
+            if (globalThis["OffscreenCanvas"]) {
+                let OffscreenCanvas = globalThis["OffscreenCanvas"];
+                return new OffscreenCanvas(width, height);
+            }
+            else {
+                let OffscreenCanvas = document.createElement('canvas');
+                OffscreenCanvas.width = width;
+                OffscreenCanvas.height = height;
+                return OffscreenCanvas;
+            }
         }
     }
     ftk.AbstractEngine = AbstractEngine;
@@ -1574,18 +1616,8 @@ var ftk;
                 this.y = y || 0;
             }
         }
-        static distance(a, b) {
-            let x = Math.abs(a.x - b.x);
-            let y = Math.abs(a.y - b.y);
-            return Math.sqrt((x * x + y * y));
-        }
         distance(a) {
             return Point.distance(this, a);
-        }
-        static rotate(pt, angle, basept) {
-            let p = pt.clone();
-            p.rotate(angle, basept);
-            return p;
         }
         rotate(angle, basept) {
             let cosValue = Math.cos(angle);
@@ -1594,6 +1626,16 @@ var ftk;
             let y = this.y - basept.y;
             this.x = basept.x + (x * cosValue - y * sinValue);
             this.y = basept.y + (x * sinValue + y * cosValue);
+        }
+        static distance(a, b) {
+            let x = Math.abs(a.x - b.x);
+            let y = Math.abs(a.y - b.y);
+            return Math.sqrt((x * x + y * y));
+        }
+        static rotate(pt, angle, basept) {
+            let p = pt.clone();
+            p.rotate(angle, basept);
+            return p;
         }
     }
     ftk.Point = Point;
@@ -1696,16 +1738,6 @@ var ftk;
             return point.x >= this.x && (point.x <= this.x + this.w)
                 && point.y >= this.y && (point.y <= this.y + this.h);
         }
-        static isIntersect(r0, r1) {
-            let a = r0.leftTop;
-            let b = r0.rightBottom;
-            let c = r1.leftTop;
-            let d = r1.rightBottom;
-            return (Math.min(a.x, b.x) <= Math.max(c.x, d.x)
-                && Math.min(c.y, d.y) <= Math.max(a.y, b.y)
-                && Math.min(c.x, d.x) <= Math.max(a.x, b.x)
-                && Math.min(a.y, b.y) <= Math.max(c.y, d.y));
-        }
         isIntersect(r) {
             return Rectangle.isIntersect(this, r);
         }
@@ -1718,29 +1750,6 @@ var ftk;
             this.y -= value;
             this.w += value;
             this.h += value;
-        }
-        static normalize(a) {
-            let x = 0;
-            let w = 0;
-            let y = 0;
-            let h = 0;
-            if (a.w < 0) {
-                x = a.x + a.w;
-                w = -a.w;
-            }
-            else {
-                x = a.x;
-                w = a.w;
-            }
-            if (a.h < 0) {
-                y = a.y + a.h;
-                h = -a.h;
-            }
-            else {
-                y = a.y;
-                h = a.h;
-            }
-            return new Rectangle(x, y, w, h);
         }
         normalize() {
             let x = 0;
@@ -1778,35 +1787,32 @@ var ftk;
             let h = this.h + tolerance * 2;
             if ((px >= x && px <= (x + w)) && (py >= y && py <= (y + h))) {
                 if (py >= y && py <= (this.y + tolerance)) {
-                    if (px >= x && px <= (this.x + tolerance))
+                    if (px >= x && px <= (this.x + tolerance)) {
                         return "top|left";
-                    else if (px >= (this.x + this.w - tolerance) && px <= (x + w))
+                    }
+                    else if (px >= (this.x + this.w - tolerance) && px <= (x + w)) {
                         return "top|right";
+                    }
                     return "top";
                 }
                 else if (py >= (this.y + this.h - tolerance) && py <= (y + h)) {
-                    if (px >= x && px <= (this.x + tolerance))
+                    if (px >= x && px <= (this.x + tolerance)) {
                         return "bottom|left";
-                    else if (px >= (this.x + this.w - tolerance) && px <= (x + w))
+                    }
+                    else if (px >= (this.x + this.w - tolerance) && px <= (x + w)) {
                         return "bottom|right";
+                    }
                     return "bottom";
                 }
-                else if (px >= x && px <= (this.x + tolerance))
+                else if (px >= x && px <= (this.x + tolerance)) {
                     return "left";
-                else if (px >= (this.x + this.w - tolerance) && px <= (x + w))
+                }
+                else if (px >= (this.x + this.w - tolerance) && px <= (x + w)) {
                     return "right";
+                }
                 return "inside";
             }
             return "none";
-        }
-        static union(a, b) {
-            let r1 = Rectangle.normalize(a);
-            let r2 = Rectangle.normalize(b);
-            let startX = r1.x < r2.x ? r1.x : r2.x;
-            let endX = r1.right > r2.right ? r1.right : r2.right;
-            let startY = r1.y < r2.y ? r1.y : r2.y;
-            let endY = r1.bottom > r2.bottom ? r1.bottom : r2.bottom;
-            return new Rectangle(startX, startY, endX - startX, endY - startY);
         }
         union(a) {
             this.normalize();
@@ -1821,14 +1827,6 @@ var ftk;
             this.w = endX - startX;
             this.h = endY - startY;
         }
-        static intersection(r1, r2) {
-            let merge = Rectangle.union(r1, r2);
-            let startX = r1.x == merge.x ? r2.x : r1.x;
-            let endX = r1.right == merge.right ? r2.right : r1.right;
-            let startY = r1.y == merge.y ? r2.y : r1.y;
-            let endY = r1.bottom == merge.bottom ? r2.bottom : r1.bottom;
-            return new Rectangle(startX, startY, endX - startX, endY - startY);
-        }
         intersection(r1, r2) {
             let merge = Rectangle.union(r1, r2);
             let startX = r1.x == merge.x ? r2.x : r1.x;
@@ -1839,6 +1837,56 @@ var ftk;
             this.y = startY;
             this.w = endX - startX;
             this.h = endY - startY;
+        }
+        static isIntersect(r0, r1) {
+            let a = r0.leftTop;
+            let b = r0.rightBottom;
+            let c = r1.leftTop;
+            let d = r1.rightBottom;
+            return (Math.min(a.x, b.x) <= Math.max(c.x, d.x)
+                && Math.min(c.y, d.y) <= Math.max(a.y, b.y)
+                && Math.min(c.x, d.x) <= Math.max(a.x, b.x)
+                && Math.min(a.y, b.y) <= Math.max(c.y, d.y));
+        }
+        static normalize(a) {
+            let x = 0;
+            let w = 0;
+            let y = 0;
+            let h = 0;
+            if (a.w < 0) {
+                x = a.x + a.w;
+                w = -a.w;
+            }
+            else {
+                x = a.x;
+                w = a.w;
+            }
+            if (a.h < 0) {
+                y = a.y + a.h;
+                h = -a.h;
+            }
+            else {
+                y = a.y;
+                h = a.h;
+            }
+            return new Rectangle(x, y, w, h);
+        }
+        static union(a, b) {
+            let r1 = Rectangle.normalize(a);
+            let r2 = Rectangle.normalize(b);
+            let startX = r1.x < r2.x ? r1.x : r2.x;
+            let endX = r1.right > r2.right ? r1.right : r2.right;
+            let startY = r1.y < r2.y ? r1.y : r2.y;
+            let endY = r1.bottom > r2.bottom ? r1.bottom : r2.bottom;
+            return new Rectangle(startX, startY, endX - startX, endY - startY);
+        }
+        static intersection(r1, r2) {
+            let merge = Rectangle.union(r1, r2);
+            let startX = r1.x == merge.x ? r2.x : r1.x;
+            let endX = r1.right == merge.right ? r2.right : r1.right;
+            let startY = r1.y == merge.y ? r2.y : r1.y;
+            let endY = r1.bottom == merge.bottom ? r2.bottom : r1.bottom;
+            return new Rectangle(startX, startY, endX - startX, endY - startY);
         }
     }
     ftk.Rectangle = Rectangle;
@@ -1860,6 +1908,26 @@ var ftk;
         clone() {
             return new LineSegment(this.start, this.end);
         }
+        isInLine(point) {
+            return LineSegment.isInLine(point, this);
+        }
+        isIntersect(l) {
+            return LineSegment.isIntersect(this, l);
+        }
+        get angle() {
+            return Math.atan2(this.end.y - this.start.y, this.end.x - this.start.x);
+        }
+        angleBetween(a) {
+            return LineSegment.angleBetween(this, a);
+        }
+        get box() {
+            let r = new Rectangle(this.start.x, this.start.y, this.end.x - this.start.x, this.end.y - this.start.y);
+            r.normalize();
+            return r;
+        }
+        get center() {
+            return new Point(this.start.x + ((this.end.x - this.start.x) / 2), this.start.y + ((this.end.y - this.start.y) / 2));
+        }
         static isInLineEx(point, lstart, lend) {
             return (((point.x - lstart.x) * (lstart.y - lend.y)) == ((lstart.x - lend.x) * (point.y - lstart.y))
                 && (point.x >= Math.min(lstart.x, lend.x) && point.x <= Math.max(lstart.x, lend.x))
@@ -1867,9 +1935,6 @@ var ftk;
         }
         static isInLine(point, line) {
             return LineSegment.isInLineEx(point, line.start, line.end);
-        }
-        isInLine(point) {
-            return LineSegment.isInLine(point, this);
         }
         static isIntersect(l0, l1) {
             let a = l0.start;
@@ -1888,12 +1953,6 @@ var ftk;
             let z = (b.x - c.x) * (d.y - c.y) - (d.x - c.x) * (b.y - c.y);
             return (u * v === 0 && w * z === 0);
         }
-        isIntersect(l) {
-            return LineSegment.isIntersect(this, l);
-        }
-        get angle() {
-            return Math.atan2(this.end.y - this.start.y, this.end.x - this.start.x);
-        }
         static angleBetween(a, b) {
             let v1 = a.end.x - a.start.x;
             let v2 = a.end.y - a.start.y;
@@ -1901,20 +1960,10 @@ var ftk;
             let v4 = b.end.y - b.start.y;
             let fAngle0 = (v1 * v3 + v2 * v4) / ((Math.sqrt(v1 * v1 + v2 * v2)) * (Math.sqrt(v3 * v3 + v4 * v4)));
             let fAngle = Math.acos(fAngle0);
-            if (fAngle >= PI_HALF)
+            if (fAngle >= PI_HALF) {
                 fAngle = Math.PI - fAngle;
+            }
             return fAngle;
-        }
-        angleBetween(a) {
-            return LineSegment.angleBetween(this, a);
-        }
-        get box() {
-            let r = new Rectangle(this.start.x, this.start.y, this.end.x - this.start.x, this.end.y - this.start.y);
-            r.normalize();
-            return r;
-        }
-        get center() {
-            return new Point(this.start.x + ((this.end.x - this.start.x) / 2), this.start.y + ((this.end.y - this.start.y) / 2));
         }
     }
     ftk.LineSegment = LineSegment;
@@ -1945,10 +1994,6 @@ var ftk;
         isInsideOrBoundary(point) {
             return Point.distance(this.center, point) <= this.radius;
         }
-        static isIntersect(a, b) {
-            let d = Point.distance(a.center, b.center);
-            return d < a.radius || d < b.radius;
-        }
         isIntersect(a) {
             return Circle.isIntersect(this, a);
         }
@@ -1956,71 +2001,25 @@ var ftk;
             let s = this.radius + this.radius;
             return new Rectangle(this.center.x - this.radius, this.center.y - this.radius, s, s);
         }
+        static isIntersect(a, b) {
+            let d = Point.distance(a.center, b.center);
+            return d < a.radius || d < b.radius;
+        }
     }
     ftk.Circle = Circle;
     class Polygon {
         constructor(vertexs) {
             let vs = new Array();
             if (vertexs) {
-                for (let i = 0; i < vertexs.length; ++i) {
-                    vs.push(vertexs[i].clone());
+                for (let v of vertexs) {
+                    vs.push(v.clone());
                 }
             }
             this.mVertexs = vs;
             this.closed = true;
         }
-        clone() {
-            return new Polygon(this.mVertexs);
-        }
         get vertexs() {
             return this.mVertexs;
-        }
-        static isBoundary(point, p) {
-            let count = p.mVertexs.length - 1;
-            for (let i = 0; i < count; ++i) {
-                if (LineSegment.isInLineEx(point, p.mVertexs[i], p.mVertexs[i + 1]))
-                    return true;
-            }
-            return false;
-        }
-        isBoundary(point) {
-            return Polygon.isBoundary(point, this);
-        }
-        static isInPolygon(point, p) {
-            let x = point.x;
-            let y = point.y;
-            let vs = p.mVertexs;
-            let count = vs.length;
-            let j = count - 1;
-            let isin = false;
-            for (let i = 0; i < count; i++) {
-                let vi = vs[i];
-                let vj = vs[j];
-                if ((vi.y < y && vj.y >= y || vj.y < y && vi.y >= y) && (vi.x <= x || vj.x <= x)) {
-                    if (vi.x + (y - vi.y) / (vj.y - vi.y) * (vj.x - vi.x) < x) {
-                        isin = !isin;
-                    }
-                }
-                j = i;
-            }
-            return isin;
-        }
-        isInPolygon(point) {
-            return Polygon.isInPolygon(point, this);
-        }
-        appendVertex(...points) {
-            points.forEach((point) => {
-                this.mVertexs.push(point.clone());
-            });
-        }
-        popVertex() {
-            return this.mVertexs.pop();
-        }
-        insertVertex(index, ...points) {
-            this.mVertexs.splice(index, 0, ...points);
-        }
-        removeVertex(index, count) {
-            this.mVertexs.splice(index, count);
         }
         get gravity() {
             let area = 0.0;
@@ -2043,8 +2042,9 @@ var ftk;
         }
         get box() {
             let vs = this.mVertexs;
-            if (vs.length == 0)
+            if (vs.length == 0) {
                 return new Rectangle();
+            }
             let left = vs[0].x;
             let top = vs[0].y;
             let right = left;
@@ -2052,19 +2052,74 @@ var ftk;
             let count = vs.length;
             for (let i = 1; i <= count; i++) {
                 let p = vs[i];
-                if (left > p.x)
+                if (left > p.x) {
                     left = p.x;
-                if (top > p.y)
+                }
+                if (top > p.y) {
                     top = p.y;
-                if (right < p.x)
+                }
+                if (right < p.x) {
                     right = p.x;
-                if (bottom < p.y)
+                }
+                if (bottom < p.y) {
                     bottom = p.y;
+                }
             }
             return new Rectangle(left, top, right - left, bottom - top);
         }
         get center() {
             return this.box.center;
+        }
+        clone() {
+            return new Polygon(this.mVertexs);
+        }
+        isBoundary(point) {
+            return Polygon.isBoundary(point, this);
+        }
+        isInPolygon(point) {
+            return Polygon.isInPolygon(point, this);
+        }
+        appendVertex(...points) {
+            points.forEach((point) => {
+                this.mVertexs.push(point.clone());
+            });
+        }
+        popVertex() {
+            return this.mVertexs.pop();
+        }
+        insertVertex(index, ...points) {
+            this.mVertexs.splice(index, 0, ...points);
+        }
+        removeVertex(index, count) {
+            this.mVertexs.splice(index, count);
+        }
+        static isBoundary(point, p) {
+            let count = p.mVertexs.length - 1;
+            for (let i = 0; i < count; ++i) {
+                if (LineSegment.isInLineEx(point, p.mVertexs[i], p.mVertexs[i + 1])) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        static isInPolygon(point, p) {
+            let x = point.x;
+            let y = point.y;
+            let vs = p.mVertexs;
+            let count = vs.length;
+            let j = count - 1;
+            let isin = false;
+            for (let i = 0; i < count; i++) {
+                let vi = vs[i];
+                let vj = vs[j];
+                if ((vi.y < y && vj.y >= y || vj.y < y && vi.y >= y) && (vi.x <= x || vj.x <= x)) {
+                    if (vi.x + (y - vi.y) / (vj.y - vi.y) * (vj.x - vi.x) < x) {
+                        isin = !isin;
+                    }
+                }
+                j = i;
+            }
+            return isin;
         }
     }
     ftk.Polygon = Polygon;
@@ -2072,103 +2127,6 @@ var ftk;
         constructor(x, y) {
             this.x = x || 0;
             this.y = y || 0;
-        }
-        clone() {
-            return new Vector(this.x, this.y);
-        }
-        setV(x, y) {
-            if (x instanceof Vector) {
-                this.x = x.x;
-                this.y = x.y;
-            }
-            else {
-                this.x = x;
-                this.y = y || 0;
-            }
-        }
-        static add(a, b) {
-            return new Vector(a.x + b.x, a.y + b.y);
-        }
-        add(v) {
-            this.x += v.x;
-            this.y += v.y;
-        }
-        static sub(a, b) {
-            return new Vector(a.x - b.x, a.y - b.y);
-        }
-        sub(v) {
-            this.x -= v.x;
-            this.y -= v.y;
-        }
-        static mul(v, scalar) {
-            return new Vector(v.x * scalar, v.y * scalar);
-        }
-        mul(v) {
-            this.x *= v;
-            this.y *= v;
-        }
-        static div(v, scalar) {
-            return new Vector(v.x / scalar, v.y / scalar);
-        }
-        div(v) {
-            this.x /= v;
-            this.y /= v;
-        }
-        static cross(a, b) {
-            return a.x * b.y - a.y * b.x;
-        }
-        cross(v) {
-            return this.x * v.y - this.y * v.x;
-        }
-        static dot(a, b) {
-            return a.x * b.y + a.y * b.x;
-        }
-        dot(v) {
-            return this.x * v.y + this.y * v.x;
-        }
-        static inner(a, b) {
-            return a.x * b.x + a.y * b.y;
-        }
-        inner(v) {
-            return this.x * v.x + this.y * v.y;
-        }
-        epointual(v) {
-            return this.x == v.x && this.y == v.y;
-        }
-        static epointual(a, b) {
-            return a.x == b.x && a.y == b.y;
-        }
-        normalize() {
-            let l = this.length;
-            this.div(l);
-        }
-        zero() {
-            this.x = 0;
-            this.y = 0;
-        }
-        reverse() {
-            this.x = -this.x;
-            this.y = -this.y;
-        }
-        rotate(angle) {
-            let cosValue = Math.cos(angle);
-            let sinValue = Math.sin(angle);
-            let x = this.x;
-            let y = this.y;
-            this.x = x * cosValue - y * sinValue;
-            this.y = x * sinValue + y * cosValue;
-        }
-        static angleBetween(a, b) {
-            return Math.atan2(Vector.cross(a, b), Vector.dot(a, b));
-        }
-        static perpendicular(a, b) {
-            return (!a.isZero) && (!b.isZero) && Vector.inner(a, b) === 0;
-        }
-        static isColinear(a, b) {
-            return a.slope === b.slope;
-        }
-        isColinear() {
-            return this.slope === this.slope;
         }
         get isZero() {
             return this.x === 0 && this.x === this.y;
@@ -2193,6 +2151,103 @@ var ftk;
         get lengthQ() {
             return this.x * this.x + this.y * this.y;
         }
+        clone() {
+            return new Vector(this.x, this.y);
+        }
+        setV(x, y) {
+            if (x instanceof Vector) {
+                this.x = x.x;
+                this.y = x.y;
+            }
+            else {
+                this.x = x;
+                this.y = y || 0;
+            }
+        }
+        add(v) {
+            this.x += v.x;
+            this.y += v.y;
+        }
+        sub(v) {
+            this.x -= v.x;
+            this.y -= v.y;
+        }
+        mul(v) {
+            this.x *= v;
+            this.y *= v;
+        }
+        div(v) {
+            this.x /= v;
+            this.y /= v;
+        }
+        cross(v) {
+            return this.x * v.y - this.y * v.x;
+        }
+        dot(v) {
+            return this.x * v.y + this.y * v.x;
+        }
+        inner(v) {
+            return this.x * v.x + this.y * v.y;
+        }
+        epointual(v) {
+            return this.x == v.x && this.y == v.y;
+        }
+        normalize() {
+            let l = this.length;
+            this.div(l);
+        }
+        zero() {
+            this.x = 0;
+            this.y = 0;
+        }
+        reverse() {
+            this.x = -this.x;
+            this.y = -this.y;
+        }
+        rotate(angle) {
+            let cosValue = Math.cos(angle);
+            let sinValue = Math.sin(angle);
+            let x = this.x;
+            let y = this.y;
+            this.x = x * cosValue - y * sinValue;
+            this.y = x * sinValue + y * cosValue;
+        }
+        isColinear() {
+            return this.slope === this.slope;
+        }
+        static add(a, b) {
+            return new Vector(a.x + b.x, a.y + b.y);
+        }
+        static sub(a, b) {
+            return new Vector(a.x - b.x, a.y - b.y);
+        }
+        static mul(v, scalar) {
+            return new Vector(v.x * scalar, v.y * scalar);
+        }
+        static div(v, scalar) {
+            return new Vector(v.x / scalar, v.y / scalar);
+        }
+        static cross(a, b) {
+            return a.x * b.y - a.y * b.x;
+        }
+        static dot(a, b) {
+            return a.x * b.y + a.y * b.x;
+        }
+        static inner(a, b) {
+            return a.x * b.x + a.y * b.y;
+        }
+        static epointual(a, b) {
+            return a.x == b.x && a.y == b.y;
+        }
+        static angleBetween(a, b) {
+            return Math.atan2(Vector.cross(a, b), Vector.dot(a, b));
+        }
+        static perpendicular(a, b) {
+            return (!a.isZero) && (!b.isZero) && Vector.inner(a, b) === 0;
+        }
+        static isColinear(a, b) {
+            return a.slope === b.slope;
+        }
     }
     ftk.Vector = Vector;
 })(ftk || (ftk = {}));
@@ -2211,8 +2266,9 @@ var ftk;
         constructor(url, name) {
             if (!name) {
                 let urlArr = url.split('?');
-                if (urlArr.length == 1)
+                if (urlArr.length == 1) {
                     urlArr = url.split('#');
+                }
                 name = urlArr[0];
             }
             this.mName = name;
@@ -2226,15 +2282,16 @@ var ftk;
         get Loaded() {
             return this.mLoaded;
         }
-        setLoaded(value) {
-            this.mLoaded = value;
-        }
         Load() {
             return new Promise((resolve, reject) => {
-                if (this.Loaded)
+                if (this.Loaded) {
                     resolve();
+                }
                 this.OnLoad(resolve, reject);
             });
+        }
+        setLoaded(value) {
+            this.mLoaded = value;
         }
     }
     ftk.Resource = Resource;
@@ -2395,33 +2452,40 @@ var ftk;
         }
         GetImage(name) {
             let r = this.Get(name);
-            if (!r)
+            if (!r) {
                 return r;
-            if (r instanceof ImageResource)
+            }
+            if (r instanceof ImageResource) {
                 return r;
+            }
             return undefined;
         }
         GetAudio(name) {
             let r = this.Get(name);
-            if (!r)
+            if (!r) {
                 return r;
-            if (r instanceof AudioResource)
+            }
+            if (r instanceof AudioResource) {
                 return r;
+            }
             return undefined;
         }
         GetVideo(name) {
             let r = this.Get(name);
-            if (!r)
+            if (!r) {
                 return r;
-            if (r instanceof VideoResource)
+            }
+            if (r instanceof VideoResource) {
                 return r;
+            }
             return undefined;
         }
         LoadAll(progressHandler) {
             let total = 0;
             let count = 0;
-            if (progressHandler)
+            if (progressHandler) {
                 progressHandler(0);
+            }
             return new Promise((resolve, reject) => {
                 let list = new Array();
                 this.mResourceList.forEach((r) => {
@@ -2460,10 +2524,12 @@ var ftk;
     class ImageSprite extends ftk.Sprite {
         constructor(resource, w, h, id) {
             super(id);
-            if (resource)
+            if (resource) {
                 this.mImage = resource;
-            else
+            }
+            else {
                 this.mImage = new ftk.ImageResource("");
+            }
             if (w && h) {
                 this.Resize(w, h);
             }
@@ -2698,6 +2764,28 @@ var ftk;
                 this.mWaitingQueue = new Array();
                 this.connect(options.url, options.protocols);
             }
+            get Connected() {
+                return (!this.mCloseing) && (this.mSocket !== null) && (this.mSocket.readyState === WebSocket.OPEN);
+            }
+            get WaitingQueueLength() {
+                return this.mWaitingQueue.length;
+            }
+            SendMessage(data) {
+                if (this.mSocket && this.Connected) {
+                    this.mSocket.send(data);
+                }
+                else {
+                    if (this.mCloseing) {
+                        this.emit('error', "Can't try an operation on an unrecoverable channel.");
+                    }
+                    else {
+                        if (this.mWaitingQueue.length > 1024 * 8) {
+                            this.mWaitingQueue.shift();
+                        }
+                        this.mWaitingQueue.push(data);
+                    }
+                }
+            }
             connect(url, protocols) {
                 this._Close();
                 this.mSocket = new WebSocket(url, protocols);
@@ -2738,12 +2826,6 @@ var ftk;
                     }, this.mReconnectInterval);
                 }
             }
-            get Connected() {
-                return (!this.mCloseing) && (this.mSocket !== null) && (this.mSocket.readyState === WebSocket.OPEN);
-            }
-            get WaitingQueueLength() {
-                return this.mWaitingQueue.length;
-            }
             _Close() {
                 if (this.mSocket) {
                     this.mSocket.onclose = null;
@@ -2760,25 +2842,12 @@ var ftk;
                 this.mWaitingQueue.length = 0;
                 this._Close();
             }
-            SendMessage(data) {
-                if (this.mSocket && this.Connected) {
-                    this.mSocket.send(data);
-                }
-                else {
-                    if (this.mCloseing) {
-                        this.emit('error', "Can't try an operation on an unrecoverable channel.");
-                    }
-                    else {
-                        if (this.mWaitingQueue.length > 1024 * 8) {
-                            this.mWaitingQueue.shift();
-                        }
-                        this.mWaitingQueue.push(data);
-                    }
-                }
-            }
         }
         net.Channel = Channel;
         class StringChannel extends Channel {
+            Send(data) {
+                this.SendMessage(data);
+            }
             OnMessageHandle(data) {
                 if (data instanceof ArrayBuffer) {
                     this.emit('message', ftk.utility.UTF8BufferDecode(data));
@@ -2787,12 +2856,12 @@ var ftk;
                     this.emit('message', data);
                 }
             }
-            Send(data) {
-                this.SendMessage(data);
-            }
         }
         net.StringChannel = StringChannel;
         class JsonChannel extends Channel {
+            Send(data) {
+                this.SendMessage(JSON.stringify(data));
+            }
             OnMessageHandle(data) {
                 let json;
                 try {
@@ -2809,20 +2878,9 @@ var ftk;
                 }
                 this.emit('message', json);
             }
-            Send(data) {
-                this.SendMessage(ftk.utility.UTF8BufferEncode(JSON.stringify(data)));
-            }
         }
         net.JsonChannel = JsonChannel;
         class ArrayBufferChannel extends Channel {
-            OnMessageHandle(data) {
-                if (data instanceof ArrayBuffer) {
-                    this.emit('message', data);
-                }
-                else {
-                    this.emit('message', ftk.utility.UTF8BufferEncode(data));
-                }
-            }
             Send(data) {
                 if (data instanceof ArrayBuffer) {
                     this.SendMessage(data);
@@ -2830,8 +2888,16 @@ var ftk;
                 else if (ArrayBuffer.isView(data)) {
                     this.SendMessage(data);
                 }
-                else if (data && typeof (data) !== 'undefined') {
+                else if (data || typeof (data) !== 'undefined' || data !== null) {
                     this.SendMessage(ftk.utility.UTF8BufferEncode(data.toString()));
+                }
+            }
+            OnMessageHandle(data) {
+                if (data instanceof ArrayBuffer) {
+                    this.emit('message', data);
+                }
+                else {
+                    this.emit('message', ftk.utility.UTF8BufferEncode(data));
                 }
             }
         }
@@ -2843,10 +2909,12 @@ var ftk;
     class VideoSprite extends ftk.Sprite {
         constructor(resource, w, h, id) {
             super(id);
-            if (resource)
+            if (resource) {
                 this.mVideo = resource;
-            else
+            }
+            else {
                 this.mVideo = new ftk.VideoResource("");
+            }
             if (w && h) {
                 this.Resize(w, h);
             }
@@ -2860,16 +2928,16 @@ var ftk;
         set Resource(value) {
             this.mVideo = value;
         }
-        OnRander(rc) {
-            let video = this.Resource.Video;
-            let box = this.Box;
-            rc.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, box.x, box.y, box.w, box.h);
-        }
         Play() {
             this.Resource.Video.play();
         }
         Pause() {
             this.Resource.Video.pause();
+        }
+        OnRander(rc) {
+            let video = this.Resource.Video;
+            let box = this.Box;
+            rc.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, box.x, box.y, box.w, box.h);
         }
     }
     ftk.VideoSprite = VideoSprite;
@@ -2897,7 +2965,7 @@ var ftk;
                 }
             }
             randColor() {
-                var components = [
+                let components = [
                     (Math.random() * 128 + 128) & 0xff, (Math.random() * 128 + 128) & 0xff, (Math.random() * 128 + 128) & 0xff
                 ];
                 components[Math.floor(Math.random() * 3)] = Math.floor(Math.random() * 200 + 55) & 0xff;
@@ -2914,7 +2982,7 @@ var ftk;
                 this.life *= 2;
             }
             Update() {
-                var spark = new FireworkSparkParticle(this.PA, this.x, this.y);
+                let spark = new FireworkSparkParticle(this.PA, this.x, this.y);
                 spark.vx /= 10;
                 spark.vy /= 10;
                 spark.vx += this.vx / 2;
@@ -2934,9 +3002,9 @@ var ftk;
             }
             Update() {
                 super.Update();
-                var bits = Math.ceil(this.life * 10 / this.lifeMax);
-                for (var i = 0; i < bits; ++i) {
-                    var flame = new FireworkFlameParticle(this.PA, this.x, this.y);
+                let bits = Math.ceil(this.life * 10 / this.lifeMax);
+                for (let i = 0; i < bits; ++i) {
+                    let flame = new FireworkFlameParticle(this.PA, this.x, this.y);
                     flame.vy *= 1.5;
                     flame.vx *= 1.5;
                     this.PA.AddParticle(flame);
@@ -2949,7 +3017,7 @@ var ftk;
         class FireworkAnimation extends ftk.ParticleSprite {
             OnUpdate() {
                 if ((this.Ticks % 40) === 0) {
-                    var fw = new FireworkParticle(this, Math.random() * window.innerWidth, Math.random() * window.innerHeight * 0.75);
+                    let fw = new FireworkParticle(this, Math.random() * window.innerWidth, Math.random() * window.innerHeight * 0.75);
                     fw.vx *= 5;
                     fw.vy *= 3;
                     this.AddParticle(fw);
@@ -2992,12 +3060,14 @@ var ftk;
             OnDispatchMouseEvent(ev, _forced) {
                 switch (ev.InputType) {
                     case ftk.InputEventType.MouseEnter:
-                        if (this.mHoverImage && (!this.mPressState))
+                        if (this.mHoverImage && (!this.mPressState)) {
                             super.Resource = this.mHoverImage;
+                        }
                         break;
                     case ftk.InputEventType.MouseLeave:
-                        if (this.mNormalImage)
+                        if (this.mNormalImage) {
                             super.Resource = this.mNormalImage;
+                        }
                         this.mPressState = false;
                         break;
                     case ftk.InputEventType.MouseDown:

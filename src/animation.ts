@@ -9,8 +9,6 @@ namespace ftk {
     }
 
     export abstract class Animation<T> implements IAnimation {
-        public Loop: boolean;
-        public Duration: number;
         private mStartValue: T;
         private mEndValue: T;
         private mDistance: T;
@@ -18,6 +16,9 @@ namespace ftk {
         private mEndTime: number;
         private mPlaying: boolean;
         private mFirstFrame: boolean;
+
+        public Loop: boolean;
+        public Duration: number;
 
         constructor(start: T, end: T, duration: number, loop?: boolean, autostart?: boolean) {
             this.mPlaying = false;
@@ -29,8 +30,9 @@ namespace ftk {
             this.mStartTime = 0;
             this.mEndTime = 0;
             this.mFirstFrame = true;
-            if (autostart)
+            if (autostart) {
                 this.Start();
+            }
         }
 
         public get Playing(): boolean { return this.mPlaying; }
@@ -52,8 +54,9 @@ namespace ftk {
         }
 
         public Update(timestamp: number, target: Sprite): void {
-            if (!this.Playing)
+            if (!this.Playing) {
                 return;
+            }
             if (this.mFirstFrame) {
                 this.mStartTime = timestamp;
                 this.mEndTime = timestamp + this.Duration;
@@ -66,8 +69,9 @@ namespace ftk {
                         this.mStartTime = timestamp;
                         this.mEndTime = timestamp + this.Duration;
                     }
-                    else
+                    else {
                         this.Stop();
+                    }
                 } else {
                     let count = timestamp - this.mStartTime;
                     let value = this.CalcProgress(this.mStartValue, this.mDistance, count, this.Duration);
@@ -170,17 +174,18 @@ namespace ftk {
     }
 
     export class KeyframeAnimation implements IAnimation {
-        public Loop: boolean;;
         private mPlaying: boolean;
-        private mFrames: Array<IAnimation>;
+        private mFrames: IAnimation[];
         private mCurrentFrame: number;
+        public Loop: boolean;
         constructor(loop?: boolean, autostart?: boolean) {
             this.mPlaying = false;
             this.Loop = loop ? loop : false;
             this.mFrames = new Array<IAnimation>();
             this.mCurrentFrame = 0;
-            if (autostart)
+            if (autostart) {
                 this.Start();
+            }
         }
 
         public get Playing(): boolean { return this.mPlaying; }
@@ -205,18 +210,20 @@ namespace ftk {
         }
 
         public RemoveFrame(animation: IAnimation): void {
-            this.mFrames = this.mFrames.filter((a) => { return a !== animation });
+            this.mFrames = this.mFrames.filter((a) => { return a !== animation; });
         }
         public ClearFrames(): void {
             this.mFrames = new Array<IAnimation>();
         }
 
         public Update(timestamp: number, target: Sprite): void {
-            if (!this.Playing && this.mFrames.length == 0)
+            if (!this.Playing && this.mFrames.length == 0) {
                 return;
+            }
             let animation = this.mFrames[this.mCurrentFrame];
-            if (!animation.Playing)
+            if (!animation.Playing) {
                 animation.Start();
+            }
             animation.Loop = false;
             animation.Update(timestamp, target);
             if (!animation.Playing) {

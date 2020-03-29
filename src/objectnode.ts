@@ -93,16 +93,16 @@ namespace ftk {
         }
     }
     export class GTouchEvent extends GInputEvent {
-        public readonly Touches: IReadOnlyArray<ITouchPoint>;
-        public readonly ChangedTouches: IReadOnlyArray<ITouchPoint>;
+        public readonly Touches: IReadonlyArray<ITouchPoint>;
+        public readonly ChangedTouches: IReadonlyArray<ITouchPoint>;
         constructor(
             source: any,
             eventType: InputEventType,
             altKey: boolean,
             ctrlKey: boolean,
             shiftKey: boolean,
-            touches: IReadOnlyArray<ITouchPoint>,
-            changedTouches: IReadOnlyArray<ITouchPoint>
+            touches: IReadonlyArray<ITouchPoint>,
+            changedTouches: IReadonlyArray<ITouchPoint>
         ) {
             super(
                 source,

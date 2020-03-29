@@ -39,12 +39,14 @@ namespace ftk.ui {
         protected OnDispatchMouseEvent(ev: GMouseEvent, _forced: boolean): void {
             switch (ev.InputType) {
                 case InputEventType.MouseEnter:
-                    if (this.mHoverImage && (!this.mPressState))
+                    if (this.mHoverImage && (!this.mPressState)) {
                         super.Resource = this.mHoverImage;
+                    }
                     break;
                 case InputEventType.MouseLeave:
-                    if (this.mNormalImage)
+                    if (this.mNormalImage) {
                         super.Resource = this.mNormalImage;
+                    }
                     this.mPressState = false;
                     break;
                 case InputEventType.MouseDown:

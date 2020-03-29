@@ -1,5 +1,6 @@
 namespace ftk {
-    export interface IReadOnlyArray<T> {
+
+    export interface IReadonlyArray<T> extends Iterable<T> {
         readonly length: number;
         [index: number]: T;
     }
@@ -85,7 +86,7 @@ namespace ftk {
             let newlistener = function (this: any, ...args: any[]): void {
                 listener.apply(this, args);
                 _this.removeListener(evt, newlistener);
-            }
+            };
             this.addListener(evt, newlistener);
         }
 

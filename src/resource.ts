@@ -15,15 +15,16 @@ namespace ftk {
         Load(): Promise<void>;
     }
 
-    export abstract class Resource implements IResource{
+    export abstract class Resource implements IResource {
         private mLoaded: boolean;
         private mName: string;
         private mURL: string;
         constructor(url: string, name?: string) {
             if (!name) {
                 let urlArr = url.split('?');
-                if (urlArr.length == 1)
+                if (urlArr.length == 1) {
                     urlArr = url.split('#');
+                }
                 name = urlArr[0];
             }
             this.mName = name;
@@ -31,7 +32,7 @@ namespace ftk {
             this.mURL = url;
         }
 
-        public get Url():string{return this.mURL;}
+        public get Url(): string { return this.mURL; }
         public abstract get Type(): ResourceType;
         public get Name(): string {
             return this.mName;
@@ -40,37 +41,39 @@ namespace ftk {
             return this.mLoaded;
         }
 
-        protected setLoaded(value:boolean):void{
-            this.mLoaded = value;
-        }
-        
-        protected abstract OnLoad(resolve:()=>void, reject:()=>void):void;
         public Load(): Promise<void> {
             return new Promise<void>((resolve, reject) => {
-                if (this.Loaded)
+                if (this.Loaded) {
                     resolve();
+                }
                 this.OnLoad(resolve, reject);
             });
         }
+
+        protected setLoaded(value: boolean): void {
+            this.mLoaded = value;
+        }
+
+        protected abstract OnLoad(resolve: () => void, reject: () => void): void;
     }
 
     export class ImageResource extends Resource {
         private mImage: HTMLImageElement;
         constructor(url: string, name?: string) {
-            super(url,name);
+            super(url, name);
             this.mImage = new Image();
         }
-        public get Type(): ResourceType {return ResourceType.Image;}
+        public get Type(): ResourceType { return ResourceType.Image; }
 
         public get Image(): HTMLImageElement {
             return this.mImage;
         }
-        protected OnLoad(resolve:()=>void, reject:()=>void):void{
+        protected OnLoad(resolve: () => void, reject: () => void): void {
             this.mImage.onload = () => {
                 this.setLoaded(true);
                 resolve();
-            }
-            this.mImage.onerror = () => { reject(); }
+            };
+            this.mImage.onerror = () => { reject(); };
             this.mImage.src = this.Url;
         }
     }
@@ -78,23 +81,23 @@ namespace ftk {
     export class AudioResource extends Resource {
         private mAudio: HTMLAudioElement;
         constructor(url: string, name?: string) {
-            super(url,name);
+            super(url, name);
             this.mAudio = new Audio();
             this.mAudio.autoplay = false;
             this.mAudio.controls = false;
             this.mAudio.loop = false;
         }
-        public get Type(): ResourceType {return ResourceType.Audio;}
+        public get Type(): ResourceType { return ResourceType.Audio; }
 
         public get Audio(): HTMLAudioElement {
             return this.mAudio;
         }
-        protected OnLoad(resolve:()=>void, reject:()=>void):void{
+        protected OnLoad(resolve: () => void, reject: () => void): void {
             this.mAudio.oncanplaythrough = () => {
                 this.setLoaded(true);
                 resolve();
-            }
-            this.mAudio.onerror = () => { reject(); }
+            };
+            this.mAudio.onerror = () => { reject(); };
             this.mAudio.src = this.Url;
             this.mAudio.load();
         }
@@ -103,23 +106,23 @@ namespace ftk {
     export class VideoResource extends Resource {
         private mVideo: HTMLVideoElement;
         constructor(url: string, name?: string) {
-            super(url,name);
+            super(url, name);
             this.mVideo = document.createElement("video");
             this.mVideo.autoplay = false;
             this.mVideo.controls = false;
             this.mVideo.loop = false;
         }
-        public get Type(): ResourceType {return ResourceType.Audio;}
+        public get Type(): ResourceType { return ResourceType.Audio; }
 
         public get Video(): HTMLVideoElement {
             return this.mVideo;
         }
-        protected OnLoad(resolve:()=>void, reject:()=>void):void{
+        protected OnLoad(resolve: () => void, reject: () => void): void {
             this.mVideo.oncanplay = () => {
                 this.setLoaded(true);
                 resolve();
-            }
-            this.mVideo.onerror = () => { reject(); }
+            };
+            this.mVideo.onerror = () => { reject(); };
             this.mVideo.src = this.Url;
             this.mVideo.load();
         }
@@ -128,79 +131,79 @@ namespace ftk {
     export class TextResource extends Resource {
         private mData: string;
         constructor(url: string, name?: string) {
-            super(url,name);
+            super(url, name);
             this.mData = "";
         }
-        public get Type(): ResourceType {return ResourceType.Text;}
+        public get Type(): ResourceType { return ResourceType.Text; }
 
         public get Text(): string {
             return this.mData;
         }
-        protected OnLoad(resolve:()=>void, reject:()=>void):void{
+        protected OnLoad(resolve: () => void, reject: () => void): void {
             let xhr = new XMLHttpRequest();
             xhr.onload = () => {
                 this.mData = xhr.responseText;
                 this.setLoaded(true);
                 resolve();
-            }
-            xhr.onerror = () => { reject(); }
-            xhr.onabort = () => { reject(); }
+            };
+            xhr.onerror = () => { reject(); };
+            xhr.onabort = () => { reject(); };
 
             xhr.responseType = "text";
-            xhr.open("GET",this.Url,true);
+            xhr.open("GET", this.Url, true);
         }
     }
 
     export class BlobResource extends Resource {
         private mData: Blob;
         constructor(url: string, name?: string) {
-            super(url,name);
+            super(url, name);
             this.mData = new Blob();
         }
-        public get Type(): ResourceType {return ResourceType.Blob;}
+        public get Type(): ResourceType { return ResourceType.Blob; }
 
         public get Data(): Blob {
             return this.mData;
         }
-        protected OnLoad(resolve:()=>void, reject:()=>void):void{
+        protected OnLoad(resolve: () => void, reject: () => void): void {
             let xhr = new XMLHttpRequest();
             xhr.onload = () => {
                 this.mData = xhr.response;
                 this.setLoaded(true);
                 resolve();
-            }
-            xhr.onerror = () => { reject(); }
-            xhr.onabort = () => { reject(); }
+            };
+            xhr.onerror = () => { reject(); };
+            xhr.onabort = () => { reject(); };
 
             xhr.responseType = "blob";
-            xhr.open("GET",this.Url,true);
+            xhr.open("GET", this.Url, true);
         }
     }
 
     export class RawResource extends Resource {
         private mData: ArrayBuffer;
         constructor(url: string, name?: string) {
-            super(url,name);
+            super(url, name);
             this.mData = new ArrayBuffer(0);
         }
-        public get Type(): ResourceType {return ResourceType.Raw;}
+        public get Type(): ResourceType { return ResourceType.Raw; }
 
         public get Data(): ArrayBuffer {
             return this.mData;
         }
-        protected OnLoad(resolve:()=>void, reject:()=>void):void{
+        protected OnLoad(resolve: () => void, reject: () => void): void {
             let xhr = new XMLHttpRequest();
             xhr.onload = () => {
                 let buffer = xhr.response as ArrayBuffer;
                 this.mData = buffer;
                 this.setLoaded(true);
                 resolve();
-            }
-            xhr.onerror = () => { reject(); }
-            xhr.onabort = () => { reject(); }
+            };
+            xhr.onerror = () => { reject(); };
+            xhr.onabort = () => { reject(); };
 
             xhr.responseType = "arraybuffer";
-            xhr.open("GET",this.Url,true);
+            xhr.open("GET", this.Url, true);
         }
     }
 
@@ -210,14 +213,14 @@ namespace ftk {
         GetAudio(name: string): AudioResource | undefined;
         GetVideo(name: string): VideoResource | undefined;
         Has(name: string): boolean;
-        Edit():IResourceDBEditor;
+        Edit(): IResourceDBEditor;
     }
 
     export interface IResourceDBEditor {
         Add(resource: IResource): IResourceDBEditor;
         Remove(name: string): boolean;
-        Clear():void;
-        LoadAll(progressHandler?:(progress:number)=>void): Promise<void>;
+        Clear(): void;
+        LoadAll(progressHandler?: (progress: number) => void): Promise<void>;
         forEach(callback: (resource: IResource) => boolean): void;
     }
 
@@ -227,7 +230,7 @@ namespace ftk {
             this.mResourceList.set(resource.Name, resource);
             return this;
         }
-        public Clear():void{
+        public Clear(): void {
             this.mResourceList.clear();
         }
         public Remove(name: string): boolean {
@@ -242,46 +245,53 @@ namespace ftk {
 
         public GetImage(name: string): ImageResource | undefined {
             let r = this.Get(name);
-            if (!r)
+            if (!r) {
                 return r;
-            if (r instanceof ImageResource)
+            }
+            if (r instanceof ImageResource) {
                 return r;
+            }
             return undefined;
         }
 
         public GetAudio(name: string): AudioResource | undefined {
             let r = this.Get(name);
-            if (!r)
+            if (!r) {
                 return r;
-            if (r instanceof AudioResource)
+            }
+            if (r instanceof AudioResource) {
                 return r;
+            }
             return undefined;
         }
 
 
         public GetVideo(name: string): VideoResource | undefined {
             let r = this.Get(name);
-            if (!r)
+            if (!r) {
                 return r;
-            if (r instanceof VideoResource)
+            }
+            if (r instanceof VideoResource) {
                 return r;
+            }
             return undefined;
         }
 
-        public LoadAll(progressHandler?:(progress:number)=>void): Promise<void> {
+        public LoadAll(progressHandler?: (progress: number) => void): Promise<void> {
             let total = 0;
             let count = 0;
-            if(progressHandler)
+            if (progressHandler) {
                 progressHandler(0);
+            }
             return new Promise<void>((resolve, reject) => {
                 let list = new Array<Promise<void>>();
                 this.mResourceList.forEach((r) => {
-                    if(!r.Loaded){
+                    if (!r.Loaded) {
                         let p = r.Load();
-                        if(progressHandler){
-                            p.then(()=>{
+                        if (progressHandler) {
+                            p.then(() => {
                                 ++count;
-                                progressHandler((count*100)/total);
+                                progressHandler((count * 100) / total);
                             });
                         }
                         list.push(p);
@@ -301,7 +311,7 @@ namespace ftk {
             });
         }
 
-        public Edit():IResourceDBEditor{
+        public Edit(): IResourceDBEditor {
             return this;
         }
     }

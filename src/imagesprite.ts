@@ -6,10 +6,12 @@ namespace ftk {
         private mImage: ImageResource;
         constructor(resource?: ImageResource, w?: number, h?: number, id?: string) {
             super(id);
-            if (resource)
+            if (resource) {
                 this.mImage = resource;
-            else
+            }
+            else {
                 this.mImage = new ImageResource("");
+            }
             if (w && h) {
                 this.Resize(w, h);
             } else {

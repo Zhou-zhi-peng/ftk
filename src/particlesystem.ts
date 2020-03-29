@@ -2,7 +2,7 @@
 
 namespace ftk {
     export class ParticleSprite extends Sprite {
-        private mParticles: Array<Particle>;
+        private mParticles: Particle[];
         private mTicks: number;
         private mLastUpdateTime: number;
         private mUpdateTime: number;
@@ -16,7 +16,7 @@ namespace ftk {
             this.mUpdateTime = 0;
             this.mParticleRander = null;
         }
-        public get Particles(): IReadOnlyArray<Particle> {
+        public get Particles(): IReadonlyArray<Particle> {
             return this.mParticles;
         }
         public get Ticks(): number {
@@ -47,27 +47,27 @@ namespace ftk {
             }
         }
 
-        protected OnUpdate(): boolean {
-            return false;
-        }
-
         public Update(timestamp: number): void {
             this.mUpdateTime = timestamp;
             if (!this.OnUpdate()) {
                 let arr = this.mParticles;
-                for (var i = 0; i < arr.length; ++i) {
-                    arr[i].Update();
+                for (let p of arr) {
+                    p.Update();
                 }
-                var j = 0;
-                for (var i = 0; i < arr.length; ++i) {
-                    if (arr[i].active) {
-                        arr[j++] = arr[i];
+                let j = 0;
+                for (let p of arr) {
+                    if (p.active) {
+                        arr[j++] = p;
                     }
                 }
                 arr.length = j;
             }
             ++this.mTicks;
             this.mLastUpdateTime = timestamp;
+        }
+
+        protected OnUpdate(): boolean {
+            return false;
         }
     }
     export abstract class Particle {
@@ -80,10 +80,10 @@ namespace ftk {
         public gravity: number;
         public drag: number;
         public active: boolean;
-        private mPA: ParticleSprite;
+        public readonly PA: ParticleSprite;
 
         constructor(pa: ParticleSprite, x: number, y: number) {
-            this.mPA = pa;
+            this.PA = pa;
             this.x = x;
             this.y = y;
             let pt = this.randPointOnCircle(Math.random() + 1);
@@ -96,9 +96,6 @@ namespace ftk {
             this.active = true;
         }
 
-        public get PA(): ParticleSprite {
-            return this.mPA;
-        }
         public Update(): void {
             if (--this.life < 0) {
                 this.active = false;
@@ -113,16 +110,16 @@ namespace ftk {
             if (size == null) {
                 size = 1;
             }
-            var x = 0.0;
-            var y = 0.0;
-            var s = 0.0;
+            let x = 0.0;
+            let y = 0.0;
+            let s = 0.0;
             do {
                 x = (Math.random() - 0.5) * 2.0;
                 y = (Math.random() - 0.5) * 2.0;
                 s = x * x + y * y;
             } while (s > 1);
 
-            var scale = size / Math.sqrt(s);
+            let scale = size / Math.sqrt(s);
             return new Point(
                 x * scale,
                 y * scale

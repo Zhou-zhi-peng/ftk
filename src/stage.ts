@@ -53,9 +53,9 @@ namespace ftk {
         }
 
         public GetLayer(id: string): Layer | undefined {
-            for (let i = 0; i < this.mLayerList.length; ++i) {
-                if (this.mLayerList[i].Id === id) {
-                    return this.mLayerList[i];
+            for (let l of this.mLayerList) {
+                if (l.Id === id) {
+                    return l;
                 }
             }
             return undefined;
@@ -80,35 +80,35 @@ namespace ftk {
         }
 
         public DispatchTouchEvent(ev: GTouchEvent, forced: boolean): void {
-            let values = this.mLayerList
-            for (let i = 0; i < values.length; ++i) {
-                values[i].DispatchTouchEvent(ev, forced);
-                if (ev.StopPropagation)
+            for (let l of this.mLayerList) {
+                l.DispatchTouchEvent(ev, forced);
+                if (ev.StopPropagation) {
                     break;
+                }
             }
         }
         public DispatchMouseEvent(ev: GMouseEvent, forced: boolean): void {
-            let values = this.mLayerList
-            for (let i = 0; i < values.length; ++i) {
-                values[i].DispatchMouseEvent(ev, forced);
-                if (ev.StopPropagation)
+            for (let l of this.mLayerList) {
+                l.DispatchMouseEvent(ev, forced);
+                if (ev.StopPropagation) {
                     break;
+                }
             }
         }
         public DispatchKeyboardEvent(ev: GKeyboardEvent, forced: boolean): void {
-            let values = this.mLayerList
-            for (let i = 0; i < values.length; ++i) {
-                values[i].DispatchKeyboardEvent(ev, forced);
-                if (ev.StopPropagation)
+            for (let l of this.mLayerList) {
+                l.DispatchKeyboardEvent(ev, forced);
+                if (ev.StopPropagation) {
                     break;
+                }
             }
         }
         public DispatchNoticeEvent(ev: NoticeEvent, forced: boolean): void {
-            let values = this.mLayerList
-            for (let i = 0; i < values.length; ++i) {
-                values[i].DispatchNoticeEvent(ev, forced);
-                if (ev.StopPropagation)
+            for (let l of this.mLayerList) {
+                l.DispatchNoticeEvent(ev, forced);
+                if (ev.StopPropagation) {
                     break;
+                }
             }
         }
 

@@ -28,6 +28,30 @@ namespace ftk.net {
             this.connect(options.url, options.protocols);
         }
 
+        public get Connected(): boolean {
+            return (!this.mCloseing) && (this.mSocket !== null) && (this.mSocket.readyState === WebSocket.OPEN);
+        }
+        public get WaitingQueueLength(): number {
+            return this.mWaitingQueue.length;
+        }
+
+        protected abstract OnMessageHandle(data: string | ArrayBuffer): void;
+
+        protected SendMessage(data: string | ArrayBuffer | ArrayBufferView): void {
+            if (this.mSocket && this.Connected) {
+                this.mSocket.send(data);
+            } else {
+                if (this.mCloseing) {
+                    this.emit('error', "Can't try an operation on an unrecoverable channel.");
+                } else {
+                    if (this.mWaitingQueue.length > 1024 * 8) {
+                        this.mWaitingQueue.shift();
+                    }
+                    this.mWaitingQueue.push(data);
+                }
+            }
+        }
+
         private connect(url: string, protocols?: string | string[]): void {
             this._Close();
             this.mSocket = new WebSocket(url, protocols);
@@ -71,12 +95,6 @@ namespace ftk.net {
             }
         }
 
-        public get Connected(): boolean {
-            return (!this.mCloseing) && (this.mSocket !== null) && (this.mSocket.readyState === WebSocket.OPEN);
-        }
-        public get WaitingQueueLength(): number {
-            return this.mWaitingQueue.length;
-        }
         private _Close(): void {
             if (this.mSocket) {
                 this.mSocket.onclose = null;
@@ -92,29 +110,16 @@ namespace ftk.net {
 
         private Close(): void {
             this.mCloseing = true;
-            this.mWaitingQueue.length = 0
+            this.mWaitingQueue.length = 0;
             this._Close();
-        }
-
-        protected abstract OnMessageHandle(data: string | ArrayBuffer): void;
-
-        protected SendMessage(data: string | ArrayBuffer | ArrayBufferView): void {
-            if (this.mSocket && this.Connected) {
-                this.mSocket.send(data);
-            } else {
-                if (this.mCloseing) {
-                    this.emit('error', "Can't try an operation on an unrecoverable channel.");
-                } else {
-                    if (this.mWaitingQueue.length > 1024 * 8) {
-                        this.mWaitingQueue.shift();
-                    }
-                    this.mWaitingQueue.push(data);
-                }
-            }
         }
     }
 
     export class StringChannel extends Channel {
+        public Send(data: string): void {
+            this.SendMessage(data);
+        }
+
         protected OnMessageHandle(data: string | ArrayBuffer): void {
             if (data instanceof ArrayBuffer) {
                 this.emit('message', utility.UTF8BufferDecode(data));
@@ -124,12 +129,13 @@ namespace ftk.net {
             }
         }
 
-        public Send(data: string): void {
-            this.SendMessage(data);
-        }
     }
 
     export class JsonChannel extends Channel {
+        public Send(data: any): void {
+            this.SendMessage(JSON.stringify(data));
+        }
+
         protected OnMessageHandle(data: string | ArrayBuffer): void {
             let json: any;
             try {
@@ -145,29 +151,25 @@ namespace ftk.net {
             }
             this.emit('message', json);
         }
-
-        public Send(data: any): void {
-            this.SendMessage(utility.UTF8BufferEncode(JSON.stringify(data)));
-        }
     }
 
     export class ArrayBufferChannel extends Channel {
+        public Send(data: any): void {
+            if (data instanceof ArrayBuffer) {
+                this.SendMessage(data);
+            } else if (ArrayBuffer.isView(data)) {
+                this.SendMessage(data);
+            } else if (data || typeof (data) !== 'undefined' || data !== null) {
+                this.SendMessage(utility.UTF8BufferEncode(data.toString()));
+            }
+        }
+
         protected OnMessageHandle(data: string | ArrayBuffer): void {
             if (data instanceof ArrayBuffer) {
                 this.emit('message', data);
             }
             else {
                 this.emit('message', utility.UTF8BufferEncode(data));
-            }
-        }
-
-        public Send(data: any): void {
-            if (data instanceof ArrayBuffer) {
-                this.SendMessage(data);
-            } else if (ArrayBuffer.isView(data)) {
-                this.SendMessage(data);
-            } else if (data && typeof (data) !== 'undefined') {
-                this.SendMessage(utility.UTF8BufferEncode(data.toString()));
             }
         }
     }

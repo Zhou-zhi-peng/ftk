@@ -2,7 +2,7 @@ namespace ftk.utility {
     const kIDCharset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     export function GenerateIDString(n: number) {
         let res = "";
-        let kl = kIDCharset.length-1;
+        let kl = kIDCharset.length - 1;
         for (let i = 0; i < n; i++) {
             let id = Math.ceil(Math.random() * kl);
             res += kIDCharset[id];
@@ -10,10 +10,10 @@ namespace ftk.utility {
         return res;
     }
 
-    export function UTF8BufferEncodeLength(input:string):number {
-        var output = 0;
-        for (var i = 0; i < input.length; i++) {
-            var charCode = input.charCodeAt(i);
+    export function UTF8BufferEncodeLength(input: string): number {
+        let output = 0;
+        for (let i = 0; i < input.length; i++) {
+            let charCode = input.charCodeAt(i);
             if (charCode > 0x7FF) {
                 if (0xD800 <= charCode && charCode <= 0xDBFF) {
                     i++;
@@ -21,22 +21,24 @@ namespace ftk.utility {
                 }
                 output += 3;
             }
-            else if (charCode > 0x7F)
+            else if (charCode > 0x7F) {
                 output += 2;
-            else
+            }
+            else {
                 output++;
+            }
         }
         return output;
     }
 
-    export function UTF8BufferEncode(input:string):ArrayBuffer{
+    export function UTF8BufferEncode(input: string): ArrayBuffer {
         let buffer = new ArrayBuffer(UTF8BufferEncodeLength(input));
         let output = new Uint8Array(buffer);
         let pos = 0;
-        for (var i = 0; i < input.length; i++) {
-            var charCode = input.charCodeAt(i);
+        for (let i = 0; i < input.length; i++) {
+            let charCode = input.charCodeAt(i);
             if (0xD800 <= charCode && charCode <= 0xDBFF) {
-                var lowCharCode = input.charCodeAt(++i);
+                let lowCharCode = input.charCodeAt(++i);
                 charCode = ((charCode - 0xD800) << 10) + (lowCharCode - 0xDC00) + 0x10000;
             }
             if (charCode <= 0x7F) {
@@ -59,37 +61,45 @@ namespace ftk.utility {
         return buffer;
     }
 
-    export function UTF8BufferDecode(buffer:ArrayBuffer, offset?:number,length?:number) {
-        var output = "";
-        var utf16;
-        var pos = 0;
-        if (!offset) offset = 0;
-        if (!length) length = buffer.byteLength;
-        var input = new Uint8Array(buffer,offset,length);
+    export function UTF8BufferDecode(buffer: ArrayBuffer, offset?: number, length?: number) {
+        let output = "";
+        let utf16;
+        let pos = 0;
+        if (!offset) { offset = 0; }
+        if (!length) { length = buffer.byteLength; }
+        let input = new Uint8Array(buffer, offset, length);
         while (pos < length) {
-            var byte1 = input[pos++];
-            if (byte1 < 128)
+            let byte1 = input[pos++];
+            if (byte1 < 128) {
                 utf16 = byte1;
+            }
             else {
-                var byte2 = input[pos++] - 128;
-                if (byte2 < 0)
-                    byte2 =0;
-                if (byte1 < 0xE0)             // 2 byte character
+                let byte2 = input[pos++] - 128;
+                if (byte2 < 0) {
+                    byte2 = 0;
+                }
+                if (byte1 < 0xE0) {             // 2 byte character
                     utf16 = 64 * (byte1 - 0xC0) + byte2;
+                }
                 else {
-                    var byte3 = input[pos++] - 128;
-                    if (byte3 < 0)
+                    let byte3 = input[pos++] - 128;
+                    if (byte3 < 0) {
                         byte3 = 0;
-                    if (byte1 < 0xF0)        // 3 byte character
+                    }
+                    if (byte1 < 0xF0) {        // 3 byte character
                         utf16 = 4096 * (byte1 - 0xE0) + 64 * byte2 + byte3;
+                    }
                     else {
-                        var byte4 = input[pos++] - 128;
-                        if (byte4 < 0)
+                        let byte4 = input[pos++] - 128;
+                        if (byte4 < 0) {
                             byte4 = 0;
-                        if (byte1 < 0xF8)        // 4 byte character
+                        }
+                        if (byte1 < 0xF8) {        // 4 byte character
                             utf16 = 262144 * (byte1 - 0xF0) + 4096 * byte2 + 64 * byte3 + byte4;
-                        else                     // longer encodings are not supported
+                        }
+                        else {                     // longer encodings are not supported
                             utf16 = '?'.charCodeAt(0);
+                        }
                     }
                 }
             }

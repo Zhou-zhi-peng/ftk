@@ -4,9 +4,12 @@
 /// <reference path="./ui/progressbar.ts" />
 
 namespace ftk {
+
     export abstract class AbstractEngine extends EventEmitter {
         private mRC: CanvasRenderingContext2D;
         private mCanvas: HTMLCanvasElement;
+        private mOffscreenRC: CanvasRenderingContext2D;
+        private mOffscreenCanvas: HTMLCanvasElement;
         private mRootNode: Stage;
         private mEventPrevTarget: IObjectNode | null;
         private mEventCaptured: boolean;
@@ -16,13 +19,15 @@ namespace ftk {
         private mEngineUpdateEventArg = new EngineEvent(this, 0);
         private mEngineRanderEventArg = new EngineEvent(this, null);
 
-        constructor(canvas: HTMLCanvasElement) {
+        public constructor(canvas: HTMLCanvasElement) {
             super();
             canvas.addEventListener("mousedown", (ev) => { this.OnMouseDown(ev); });
             canvas.addEventListener("mouseup", (ev) => { this.OnMouseUp(ev); });
             canvas.addEventListener("mousemove", (ev) => { this.OnMouseMove(ev); });
             this.mCanvas = canvas;
-            this.mRC = canvas.getContext("2d") as CanvasRenderingContext2D;
+            this.mRC = canvas.getContext("2d", { alpha: false }) as CanvasRenderingContext2D;
+            this.mOffscreenCanvas = AbstractEngine.createOffscreenCanvas(this.mCanvas.width, this.mCanvas.height);
+            this.mOffscreenRC = this.mOffscreenCanvas.getContext("2d", { alpha: false }) as CanvasRenderingContext2D;
             this.mRootNode = new Stage(canvas.width, canvas.height);
             this.mEventPrevTarget = null;
             this.mEventCaptured = false;
@@ -32,7 +37,6 @@ namespace ftk {
         }
 
         public get FrameRate(): number { return this.mFrameRate; }
-        protected setFrameRate(value: number) { this.mFrameRate = value; }
         public get ViewportWidth(): number { return this.mCanvas.width; }
         public get ViewportHeight(): number { return this.mCanvas.height; }
         public get Root(): Stage { return this.mRootNode; }
@@ -46,8 +50,6 @@ namespace ftk {
             this.OnRun();
         }
 
-        protected abstract OnRun(): void;
-
         public Notify(source: any, name: string, broadcast: boolean, message: any): any {
             let ev = new NoticeEvent(source, name, broadcast, message);
             let root = this.Root;
@@ -57,6 +59,9 @@ namespace ftk {
             this.emit(name, ev);
             return undefined;
         }
+
+        protected setFrameRate(value: number) { this.mFrameRate = value; }
+        protected abstract OnRun(): void;
 
         private StartLoop(): void {
             let lastUpdateTime: number = 0;
@@ -81,10 +86,14 @@ namespace ftk {
 
         private Rander(): void {
             let root = this.Root;
-            this.mRC.save();
-            root.Rander(this.mRC);
-            this.mEngineRanderEventArg.Args = this.mRC;
-            this.mRC.restore();
+            this.mOffscreenRC.save();
+            root.Rander(this.mOffscreenRC);
+            this.mOffscreenRC.restore();
+
+            this.mEngineRanderEventArg.Args = this.mOffscreenRC;
+            this.emit('rander', this.mEngineRanderEventArg);
+
+            this.mRC.drawImage(this.mOffscreenCanvas, 0, 0);
         }
 
         private createGMouseEvent(type: InputEventType, ev: MouseEvent): GMouseEvent {
@@ -158,6 +167,19 @@ namespace ftk {
 
         private OnMouseMove(ev: MouseEvent): void {
             this.OnMouseEvent(InputEventType.MouseMove, ev);
+        }
+
+        private static createOffscreenCanvas(width: number, height: number): HTMLCanvasElement {
+            let globalThis = window as any;
+            if (globalThis["OffscreenCanvas"]) {
+                let OffscreenCanvas = globalThis["OffscreenCanvas"] as any;
+                return new OffscreenCanvas(width, height) as HTMLCanvasElement;
+            } else {
+                let OffscreenCanvas = document.createElement('canvas');
+                OffscreenCanvas.width = width;
+                OffscreenCanvas.height = height;
+                return OffscreenCanvas;
+            }
         }
     }
 

@@ -8,7 +8,7 @@ namespace ftk {
         private mID: string;
         private mVisible: boolean;
         private mOpacity: number;
-        private mAnimations: Array<IAnimation> | undefined;
+        private mAnimations: IAnimation[] | undefined;
         constructor(id?: string) {
             if ((!id) || id.length == 0) {
                 id = ftk.utility.GenerateIDString(16);
@@ -73,9 +73,6 @@ namespace ftk {
             this.mRectangle.h = value;
         }
 
-        protected OnResized(): void {
-        }
-
         public Resize(w: number, h: number) {
             this.mRectangle.w = w;
             this.mRectangle.h = h;
@@ -111,21 +108,24 @@ namespace ftk {
             this.mVisible = value;
         }
 
-        public get Animations(): IReadOnlyArray<IAnimation> {
-            if (this.mAnimations)
+        public get Animations(): IReadonlyArray<IAnimation> {
+            if (this.mAnimations) {
                 return this.mAnimations;
+            }
             return [];
         }
 
         public AddAnimation(animation: IAnimation): void {
-            if (!this.mAnimations)
+            if (!this.mAnimations) {
                 this.mAnimations = new Array<IAnimation>();
+            }
             this.mAnimations.push(animation);
         }
 
         public RemoveAnimation(animation: IAnimation): boolean {
-            if (!this.mAnimations)
+            if (!this.mAnimations) {
                 return false;
+            }
             let r = false;
             for (let i = 0; i < this.mAnimations.length; ++i) {
                 if (this.mAnimations[i] === animation) {
@@ -171,32 +171,7 @@ namespace ftk {
                 rc.restore();
             }
         }
-        protected abstract OnRander(rc: CanvasRenderingContext2D): void;
-        protected OnUpdate(_timestamp: number): void {
 
-        }
-
-        protected OnDispatchTouchEvent(_ev: GTouchEvent, _forced: boolean): void {
-        }
-
-        protected OnDispatchMouseEvent(_ev: GMouseEvent, _forced: boolean): void {
-        }
-
-        protected OnDispatchKeyboardEvent(_ev: GKeyboardEvent, _forced: boolean): void {
-        }
-
-        protected OnDispatchNoticeEvent(_ev: NoticeEvent, _forced: boolean): void {
-        }
-
-        protected GetMouseEventPoint(ev: { x: number, y: number }) {
-            let angle = this.Angle;
-            let pt = new Point(ev.x, ev.y);
-            if (angle === 0) {
-                return pt;
-            }
-            pt.rotate(-angle, this.Position);
-            return pt;
-        }
         public DispatchTouchEvent(ev: GTouchEvent, forced: boolean): void {
             if (this.mVisible && (forced
                 || this.PickTest(this.GetMouseEventPoint(ev.ChangedTouches[0])))) {
@@ -225,11 +200,42 @@ namespace ftk {
         public Update(timestamp: number): void {
             if (this.mAnimations) {
                 let anis = this.mAnimations;
-                for (let i = 0; i < anis.length; ++i) {
-                    anis[i].Update(timestamp, this);
+                for (let a of anis) {
+                    a.Update(timestamp, this);
                 }
             }
             this.OnUpdate(timestamp);
         }
+
+        protected OnResized(): void {
+        }
+
+        protected abstract OnRander(rc: CanvasRenderingContext2D): void;
+        protected OnUpdate(_timestamp: number): void {
+
+        }
+
+        protected OnDispatchTouchEvent(_ev: GTouchEvent, _forced: boolean): void {
+        }
+
+        protected OnDispatchMouseEvent(_ev: GMouseEvent, _forced: boolean): void {
+        }
+
+        protected OnDispatchKeyboardEvent(_ev: GKeyboardEvent, _forced: boolean): void {
+        }
+
+        protected OnDispatchNoticeEvent(_ev: NoticeEvent, _forced: boolean): void {
+        }
+
+        protected GetMouseEventPoint(ev: { x: number, y: number }) {
+            let angle = this.Angle;
+            let pt = new Point(ev.x, ev.y);
+            if (angle === 0) {
+                return pt;
+            }
+            pt.rotate(-angle, this.Position);
+            return pt;
+        }
+
     }
 }

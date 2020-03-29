@@ -5,20 +5,21 @@
 		"member-access": true,
 		"member-ordering": [true, {
 			"order": [
-                "public-static-field", 
-                "public-static-method",
-                "protected-static-field",
-                "protected-static-method",
-                "private-static-field",
-                "private-static-method",
-                "public-instance-field",
-                "protected-instance-field",
-                "private-instance-field",
-                "public-constructor",
-                "protected-constructor",
-                "private-constructor",
-                "public-instance-method",
-                "private-instance-method"
+				"private-instance-field",
+				"private-static-field",
+				"protected-instance-field",
+				"protected-static-field",
+				"public-instance-field",
+				"public-static-field",
+				"public-constructor",
+				"public-instance-method",
+				"public-static-method",
+				"protected-constructor",
+				"protected-instance-method",
+				"protected-static-method",
+				"private-constructor",
+				"private-instance-method",
+				"private-static-method"
             ]
 		}],
 		"semicolon": [
@@ -58,6 +59,7 @@
 		"no-var-keyword": true,
 		"no-reference":false,
 		"radix": true,
+		"unified-signatures":false,
 		"restrict-plus-operands": true,
 		"triple-equals": false,
 		"use-isnan": true,

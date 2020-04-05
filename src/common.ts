@@ -1,4 +1,5 @@
 namespace ftk {
+    export const VERSION = '1.0.0.1';
 
     export interface IReadonlyArray<T> extends Iterable<T> {
         readonly length: number;
@@ -29,6 +30,7 @@ namespace ftk {
         removeListener(evt: string, listener: Function): void;
         resetListeners(): void;
         emit(evt: string, ...args: any[]): void;
+        asyncEmit(evt: string, ...args: any[]): void;
     }
 
     export class EventHandlerChain {
@@ -59,6 +61,23 @@ namespace ftk {
                 this.mHandlers.forEach((handler) => {
                     handler.apply(ctx, args);
                 });
+            }
+        }
+
+        public acall(ctx: any, ...args: any): void {
+            if (this.mHandlers && this.mHandlers.length > 0) {
+                let handlers = this.mHandlers;
+                let promise = new Promise((resolve, reject) => {
+                    try {
+                        handlers.forEach((handler) => {
+                            handler.apply(ctx, args);
+                        });
+                        resolve();
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+                promise.then(() => { }).catch(() => { });
             }
         }
     }
@@ -112,14 +131,23 @@ namespace ftk {
         }
 
         public emit(evt: string, ...args: any[]): void {
-            this.emitEx(this, evt, ...args);
+            this.emitEx(false, this, evt, ...args);
         }
 
-        protected emitEx(thisArg: any, evt: string, ...args: any[]): void {
+        public asyncEmit(evt: string, ...args: any[]): void {
+            this.emitEx(true, this, evt, ...args);
+        }
+
+        protected emitEx(isasync: boolean, thisArg: any, evt: string, ...args: any[]): void {
             if (this.mListeners) {
                 let handlerList = this.mListeners.get(evt);
                 if (handlerList) {
-                    handlerList.call(thisArg, ...args);
+                    if (isasync) {
+                        handlerList.acall(thisArg, ...args);
+                    }
+                    else {
+                        handlerList.call(thisArg, ...args);
+                    }
                 }
             }
         }

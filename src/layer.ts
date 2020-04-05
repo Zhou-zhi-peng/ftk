@@ -7,9 +7,10 @@ namespace ftk {
         private mNodes: IObjectNode[];
         private mVisible: boolean;
         private mEventTransparent: boolean;
-        private mID = ftk.utility.GenerateIDString(32);
+        private mID: string;
         private mUpdateForHide: boolean;
-        constructor() {
+        public constructor(id?: string) {
+            this.mID = id ? id : ftk.utility.GenerateIDString(32);
             this.mNodes = new Array<IObjectNode>();
             this.mVisible = true;
             this.mEventTransparent = true;
@@ -43,12 +44,12 @@ namespace ftk {
             this.mEventTransparent = value;
         }
 
-        public AddNode(node: IObjectNode): Layer {
+        public Add(node: IObjectNode): Layer {
             this.mNodes.push(node);
             return this;
         }
 
-        public RemoveNode(id: string): Layer {
+        public Remove(id: string): Layer {
             for (let i = 0; i < this.mNodes.length; ++i) {
                 if (this.mNodes[i].Id === id) {
                     this.mNodes.splice(i--, 1);
@@ -57,7 +58,12 @@ namespace ftk {
             return this;
         }
 
-        public GetNode(id: string): IObjectNode | undefined {
+        public RemoveAll(): Layer {
+            this.mNodes.length = 0;
+            return this;
+        }
+
+        public Get(id: string): IObjectNode | undefined {
             for (let n of this.mNodes) {
                 if (n.Id === id) {
                     return n;
@@ -145,9 +151,13 @@ namespace ftk {
 
     export class ColoredLayer extends Layer {
         private mBackgroundColor: Color;
-        constructor() {
-            super();
-            this.mBackgroundColor = new Color("#00F");
+        public constructor(color?: Color | string | number, id?: string) {
+            super(id);
+            if (color) {
+                this.mBackgroundColor = new Color(color);
+            } else {
+                this.mBackgroundColor = new Color("#00F");
+            }
         }
 
         public get BackgroundColor(): Color {
@@ -165,91 +175,81 @@ namespace ftk {
         }
     }
 
-    export type BackgroundImageRepeatStyle = "repeat" | "center" | "stretch" | "fit-stretch" | "none";
+    export enum BackgroundImageRepeatStyle {
+        none,
+        repeat,
+        center,
+        stretch,
+        fitStretch,
+    }
+
     export class BackgroundImageLayer extends Layer {
-        private mBackgroundImage: ImageResource;
-        private mRepeatStyle: BackgroundImageRepeatStyle;
-        constructor() {
-            super();
-            this.mBackgroundImage = new ImageResource("");
-            this.mRepeatStyle = "stretch";
-        }
-
-        public get BackgroundImage(): ImageResource {
-            return this.mBackgroundImage;
-        }
-
-        public set BackgroundImage(value: ImageResource) {
-            this.mBackgroundImage = value;
-        }
-
-        public get RepeatStyle(): BackgroundImageRepeatStyle {
-            return this.mRepeatStyle;
-        }
-
-        public set RepeatStyle(value: BackgroundImageRepeatStyle) {
-            this.mRepeatStyle = value;
+        public RepeatStyle: BackgroundImageRepeatStyle;
+        public BackgroundTexture: ITexture;
+        public constructor(texture?: ITexture, id?: string) {
+            super(id);
+            this.BackgroundTexture = texture ? texture : EmptyTexture;
+            this.RepeatStyle = BackgroundImageRepeatStyle.stretch;
         }
 
         public Rander(rc: CanvasRenderingContext2D): void {
-            let image = this.BackgroundImage.Image;
+            let texture = this.BackgroundTexture;
             let style = this.RepeatStyle;
-            if (style === "stretch") {
-                rc.drawImage(
-                    image,
-                    0,
-                    0,
-                    image.naturalWidth,
-                    image.naturalHeight,
+            if (style === BackgroundImageRepeatStyle.stretch) {
+                texture.Draw(
+                    rc,
                     0,
                     0,
                     rc.canvas.width,
                     rc.canvas.height);
-            } else if (style === "fit-stretch") {
-                let fitRatioX = image.naturalWidth / rc.canvas.width;
-                let fitRatioY = image.naturalHeight / rc.canvas.height;
+            } else if (style === BackgroundImageRepeatStyle.fitStretch) {
+                let fitRatioX = texture.Width / rc.canvas.width;
+                let fitRatioY = texture.Height / rc.canvas.height;
                 let fitratio = Math.min(fitRatioX, fitRatioY);
-                let w = image.naturalWidth * fitratio;
-                let h = image.naturalHeight * fitratio;
+                let w = texture.Width * fitratio;
+                let h = texture.Height * fitratio;
                 let x = (rc.canvas.width - w) / 2;
                 let y = (rc.canvas.height - h) / 2;
 
-                rc.drawImage(
-                    image,
-                    0, 0,
-                    image.naturalWidth,
-                    image.naturalHeight,
-                    x, y, w, h);
-            } else if (style === "center") {
-                let x = (rc.canvas.width - image.naturalWidth) / 2;
-                let y = (rc.canvas.height - image.naturalHeight) / 2;
-                rc.drawImage(
-                    image,
-                    0,
-                    0,
-                    image.naturalWidth,
-                    image.naturalHeight,
+                texture.Draw(rc, x, y, w, h);
+            } else if (style === BackgroundImageRepeatStyle.center) {
+                let x = (rc.canvas.width - texture.Width) / 2;
+                let y = (rc.canvas.height - texture.Height) / 2;
+                texture.Draw(
+                    rc,
                     x,
                     y,
-                    image.naturalWidth,
-                    image.naturalHeight);
-            } else if (style === "none") {
-                rc.drawImage(
-                    image,
+                    texture.Width,
+                    texture.Height);
+            } else if (style === BackgroundImageRepeatStyle.none) {
+                texture.Draw(
+                    rc,
                     0,
                     0,
-                    image.naturalWidth,
-                    image.naturalHeight,
-                    0,
-                    0,
-                    image.naturalWidth,
-                    image.naturalHeight);
+                    texture.Width,
+                    texture.Height);
             } else {
-                let pattern = rc.createPattern(image, 'repeat') as CanvasPattern;
-                let oldfs = rc.fillStyle;
-                rc.fillStyle = pattern;
-                rc.fillRect(0, 0, rc.canvas.width, rc.canvas.height);
-                rc.fillStyle = oldfs;
+                let rw = rc.canvas.width % texture.Width;
+                let rh = rc.canvas.height % texture.Height;
+                let rwtx = texture.Clip(0, 0, rw, rc.canvas.height);
+                let rhtx = texture.Clip(0, 0, rc.canvas.width, rh);
+                let tw = texture.Width;
+                let th = texture.Height;
+                let cw = rc.canvas.width;
+                let ch = rc.canvas.height;
+                for (let x = 0; x < cw; x += tw) {
+                    for (let y = 0; y < ch; y += th) {
+                        if (cw - x < tw) {
+                            rwtx.Draw(rc, x, y, rhtx.Width, rhtx.Height);
+                        }
+                        else if (ch - y < th) {
+                            rhtx.Draw(rc, x, y, rhtx.Width, rhtx.Height);
+                        }
+                        else {
+                            texture.Draw(rc, x, y, tw, th);
+                        }
+                    }
+                }
             }
             super.Rander(rc);
         }

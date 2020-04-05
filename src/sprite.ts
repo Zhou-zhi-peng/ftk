@@ -62,11 +62,11 @@ namespace ftk {
             this.OnResized();
         }
 
-        public get size(): Size {
+        public get Size(): ftk.Size {
             let r = this.getRectangle();
             return r.size;
         }
-        public set size(value: Size) {
+        public set Size(value: ftk.Size) {
             let r = this.getRectangle();
             r.size = value;
             this.setRectangle(r);
@@ -96,7 +96,7 @@ namespace ftk {
         }
 
         public Resize(w: number, h: number) {
-            this.size = new Size(w, h);
+            this.Size = new Size(w, h);
         }
 
         public get Angle(): number {
@@ -120,7 +120,7 @@ namespace ftk {
             this.mBasePoint = pos.clone();
         }
 
-        public setBasePointToCenter(): void {
+        public SetBasePointToCenter(): void {
             let r = this.getRectangle();
             this.mBasePoint.x = r.w / 2;
             this.mBasePoint.y = r.h / 2;
@@ -142,6 +142,9 @@ namespace ftk {
         }
 
         public AddAnimation(animation: IAnimation): void {
+            if (!animation.ValidateTarget(this)) {
+                throw new TypeError('Animation ValidateTarget failed.')
+            }
             if (!this.mAnimations) {
                 this.mAnimations = new Array<IAnimation>();
             }
@@ -221,6 +224,11 @@ namespace ftk {
             }
         }
         public DispatchNoticeEvent(ev: NoticeEvent, forced: boolean): void {
+            if (ev.Name === 'Engine.VisibilityStateChanged') {
+                let visible = (ev.Args.visible) as boolean;
+                let timestamp = (ev.Args.timestamp) as number;
+                this.OnEngineVisibilityStateChanged(visible, timestamp);
+            }
             this.OnDispatchNoticeEvent(ev, forced);
         }
         public Update(timestamp: number): void {
@@ -233,17 +241,39 @@ namespace ftk {
             this.OnUpdate(timestamp);
         }
 
-        protected abstract getRectangle(): Rectangle;
-        protected abstract setRectangle(value: Rectangle): void;
-
-        protected OnResized(): void {
+        public toTexture(): ITexture {
+            let r = this.getRectangle();
+            let canvas = utility.api.createOffscreenCanvas(r.w, r.h);
+            let rc = canvas.getContext('2d');
+            if (rc) {
+                rc.translate(-r.x, -r.y);
+                this.Rander(rc);
+                rc.translate(r.x, r.y);
+            }
+            return createTexture(canvas);
         }
 
+        protected abstract getRectangle(): Rectangle;
+        protected abstract setRectangle(value: Rectangle): void;
         protected abstract OnRander(rc: CanvasRenderingContext2D): void;
+        protected OnEngineVisibilityStateChanged(visible: boolean, timestamp: number) {
+            if (this.mAnimations) {
+                let anis = this.mAnimations;
+                for (let a of anis) {
+                    if (visible) {
+                        a.Resume(timestamp);
+                    } else {
+                        a.Suspend(timestamp);
+                    }
+                }
+            }
+        }
         protected OnUpdate(_timestamp: number): void {
 
         }
 
+        protected OnResized(): void {
+        }
         protected OnDispatchTouchEvent(_ev: GTouchEvent, _forced: boolean): void {
         }
 

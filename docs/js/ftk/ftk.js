@@ -1,9 +1,15 @@
 "use strict";
 var ftk;
 (function (ftk) {
+    let AnimationPlayState;
+    (function (AnimationPlayState) {
+        AnimationPlayState[AnimationPlayState["Stop"] = 0] = "Stop";
+        AnimationPlayState[AnimationPlayState["Suspended"] = 1] = "Suspended";
+        AnimationPlayState[AnimationPlayState["Playing"] = 2] = "Playing";
+    })(AnimationPlayState = ftk.AnimationPlayState || (ftk.AnimationPlayState = {}));
     class Animation {
         constructor(start, end, duration, loop, autostart) {
-            this.mPlaying = false;
+            this.mPlayState = AnimationPlayState.Stop;
             this.Loop = loop ? loop : false;
             this.Duration = duration;
             this.mStartValue = start;
@@ -11,38 +17,64 @@ var ftk;
             this.mDistance = this.CalcDistance(start, end);
             this.mStartTime = 0;
             this.mEndTime = 0;
+            this.mSuspendTime = 0;
             this.mFirstFrame = true;
             if (autostart) {
                 this.Start();
             }
         }
-        get Playing() { return this.mPlaying; }
+        get PlayState() { return this.mPlayState; }
         Start() {
-            if (!this.mPlaying) {
+            if (this.mPlayState !== AnimationPlayState.Playing) {
                 this.Restart();
             }
         }
         Restart() {
             this.mFirstFrame = true;
-            this.mPlaying = true;
+            this.mSuspendTime = 0;
+            this.mPlayState = AnimationPlayState.Playing;
         }
         Stop() {
-            this.mPlaying = false;
+            this.mPlayState = AnimationPlayState.Stop;
             this.mFirstFrame = true;
+            this.mSuspendTime = 0;
+        }
+        Suspend(timestamp) {
+            if (this.mPlayState === AnimationPlayState.Playing) {
+                if (!timestamp) {
+                    this.mSuspendTime = performance.now();
+                }
+                else {
+                    this.mSuspendTime = timestamp;
+                }
+                this.mPlayState = AnimationPlayState.Suspended;
+            }
+        }
+        Resume(timestamp) {
+            if (this.mPlayState === AnimationPlayState.Suspended) {
+                let ts = timestamp ? timestamp : performance.now();
+                let t = this.mSuspendTime - this.mStartTime;
+                if (t < 0) {
+                    throw new RangeError('SuspendTime < StartTime');
+                }
+                this.mStartTime = ts - t;
+                this.mEndTime = this.mStartTime + this.Duration;
+                this.mPlayState = AnimationPlayState.Playing;
+            }
         }
         Update(timestamp, target) {
-            if (!this.Playing) {
+            if (this.mPlayState !== AnimationPlayState.Playing) {
                 return;
             }
             if (this.mFirstFrame) {
                 this.mStartTime = timestamp;
                 this.mEndTime = timestamp + this.Duration;
                 this.mFirstFrame = false;
-                this.SetTarget(target, this.mStartValue);
+                this.UpdateTarget(target, this.mStartValue);
             }
             else {
                 if (timestamp >= this.mEndTime) {
-                    this.SetTarget(target, this.mEndValue);
+                    this.UpdateTarget(target, this.mEndValue);
                     if (this.Loop) {
                         this.mStartTime = timestamp;
                         this.mEndTime = timestamp + this.Duration;
@@ -54,9 +86,22 @@ var ftk;
                 else {
                     let count = timestamp - this.mStartTime;
                     let value = this.CalcProgress(this.mStartValue, this.mDistance, count, this.Duration);
-                    this.SetTarget(target, value);
+                    this.UpdateTarget(target, value);
                 }
             }
+        }
+        ValidateTarget(_target) {
+            return true;
+        }
+        get StartValue() { return this.mStartValue; }
+        set StartValue(value) {
+            this.mStartValue = value;
+            this.mDistance = this.CalcDistance(this.mStartValue, this.mEndValue);
+        }
+        get EndValue() { return this.mEndValue; }
+        set EndValue(value) {
+            this.mEndValue = value;
+            this.mDistance = this.CalcDistance(this.mStartValue, this.mEndValue);
         }
     }
     ftk.Animation = Animation;
@@ -70,37 +115,37 @@ var ftk;
     }
     ftk.NumberValueAnimation = NumberValueAnimation;
     class AngleAnimation extends NumberValueAnimation {
-        SetTarget(target, value) {
+        UpdateTarget(target, value) {
             target.Angle = value;
         }
     }
     ftk.AngleAnimation = AngleAnimation;
     class OpacityAnimation extends NumberValueAnimation {
-        SetTarget(target, value) {
+        UpdateTarget(target, value) {
             target.Opacity = value;
         }
     }
     ftk.OpacityAnimation = OpacityAnimation;
     class PosXAnimation extends NumberValueAnimation {
-        SetTarget(target, value) {
+        UpdateTarget(target, value) {
             target.X = value;
         }
     }
     ftk.PosXAnimation = PosXAnimation;
     class PosYAnimation extends NumberValueAnimation {
-        SetTarget(target, value) {
+        UpdateTarget(target, value) {
             target.Y = value;
         }
     }
     ftk.PosYAnimation = PosYAnimation;
     class WidthAnimation extends NumberValueAnimation {
-        SetTarget(target, value) {
+        UpdateTarget(target, value) {
             target.Width = value;
         }
     }
     ftk.WidthAnimation = WidthAnimation;
     class HeightAnimation extends NumberValueAnimation {
-        SetTarget(target, value) {
+        UpdateTarget(target, value) {
             target.Height = value;
         }
     }
@@ -114,7 +159,7 @@ var ftk;
             let y = start.y + (distanceTotal.y * timeProgress) / timeTotal;
             return new ftk.Point(x, y);
         }
-        SetTarget(target, value) {
+        UpdateTarget(target, value) {
             target.Position = value;
         }
     }
@@ -128,8 +173,8 @@ var ftk;
             let y = start.cy + (distanceTotal.cy * timeProgress) / timeTotal;
             return new ftk.Size(x, y);
         }
-        SetTarget(target, value) {
-            target.size = value;
+        UpdateTarget(target, value) {
+            target.Size = value;
         }
     }
     ftk.SizeAnimation = SizeAnimation;
@@ -144,14 +189,14 @@ var ftk;
             let h = start.h + (distanceTotal.h * timeProgress) / timeTotal;
             return new ftk.Rectangle(x, y, w, h);
         }
-        SetTarget(target, value) {
+        UpdateTarget(target, value) {
             target.Box = value;
         }
     }
     ftk.BoxAnimation = BoxAnimation;
     class KeyframeAnimation {
         constructor(loop, autostart) {
-            this.mPlaying = false;
+            this.mPlayState = AnimationPlayState.Stop;
             this.Loop = loop ? loop : false;
             this.mFrames = new Array();
             this.mCurrentFrame = 0;
@@ -159,17 +204,30 @@ var ftk;
                 this.Start();
             }
         }
-        get Playing() { return this.mPlaying; }
+        get PlayState() { return this.mPlayState; }
         Start() {
-            if (!this.mPlaying) {
+            if (this.mPlayState !== AnimationPlayState.Playing) {
                 this.Restart();
             }
         }
         Restart() {
-            this.mPlaying = true;
+            this.mPlayState = AnimationPlayState.Playing;
+            let cur = this.mFrames[this.mCurrentFrame];
+            if (cur) {
+                cur.Stop();
+            }
+            this.mCurrentFrame = 0;
+            cur = this.mFrames[this.mCurrentFrame];
+            if (cur) {
+                cur.Restart();
+            }
         }
         Stop() {
-            this.mPlaying = false;
+            this.mPlayState = AnimationPlayState.Stop;
+            let cur = this.mFrames[this.mCurrentFrame];
+            if (cur) {
+                cur.Stop();
+            }
         }
         AddFrame(animation) {
             animation.Loop = false;
@@ -181,17 +239,35 @@ var ftk;
         ClearFrames() {
             this.mFrames = new Array();
         }
+        Suspend(timestamp) {
+            if (this.mPlayState === AnimationPlayState.Playing) {
+                let cur = this.mFrames[this.mCurrentFrame];
+                if (cur) {
+                    cur.Suspend(timestamp);
+                }
+                this.mPlayState = AnimationPlayState.Suspended;
+            }
+        }
+        Resume(timestamp) {
+            if (this.mPlayState === AnimationPlayState.Suspended) {
+                let cur = this.mFrames[this.mCurrentFrame];
+                if (cur) {
+                    cur.Resume(timestamp);
+                }
+                this.mPlayState = AnimationPlayState.Playing;
+            }
+        }
         Update(timestamp, target) {
-            if (!this.Playing && this.mFrames.length == 0) {
+            if ((this.PlayState !== AnimationPlayState.Playing) && this.mFrames.length == 0) {
                 return;
             }
             let animation = this.mFrames[this.mCurrentFrame];
-            if (!animation.Playing) {
+            if (animation.PlayState !== AnimationPlayState.Playing) {
                 animation.Start();
             }
             animation.Loop = false;
             animation.Update(timestamp, target);
-            if (!animation.Playing) {
+            if (animation.PlayState !== AnimationPlayState.Playing) {
                 this.mCurrentFrame++;
                 if (this.mCurrentFrame >= this.mFrames.length) {
                     this.mCurrentFrame = 0;
@@ -201,8 +277,59 @@ var ftk;
                 }
             }
         }
+        ValidateTarget(_target) {
+            return true;
+        }
     }
     ftk.KeyframeAnimation = KeyframeAnimation;
+    class SequenceAnimation extends NumberValueAnimation {
+        constructor(interval, textures, loop, autostart) {
+            super(0, 0, 0, loop, autostart);
+            this.mTextureList = new Array();
+            this.mInterval = interval;
+            if (textures) {
+                for (let t of textures) {
+                    this.mTextureList.push(t);
+                }
+            }
+            this.EndValue = this.mTextureList.length - 1;
+            this.Duration = this.mTextureList.length * interval;
+        }
+        get Frames() {
+            return this.mTextureList;
+        }
+        get Interval() {
+            return this.mInterval;
+        }
+        set Interval(value) {
+            this.mInterval = value;
+            this.Duration = this.mTextureList.length * value;
+        }
+        AddFrame(texture) {
+            this.mTextureList.push(texture);
+            this.EndValue = this.mTextureList.length - 1;
+            this.Duration = this.mTextureList.length * this.mInterval;
+        }
+        RemoveAt(index) {
+            this.mTextureList.slice(index, index + 1);
+            this.EndValue = this.mTextureList.length - 1;
+            this.Duration = this.mTextureList.length * this.mInterval;
+        }
+        ClearFrames() {
+            this.mTextureList.length = 0;
+            this.EndValue = 0;
+            this.Duration = 0;
+        }
+        ValidateTarget(target) {
+            return target instanceof ftk.ImageSprite;
+        }
+        UpdateTarget(target, value) {
+            if (this.mTextureList.length > 0) {
+                target.Texture = this.mTextureList[Math.floor(value)];
+            }
+        }
+    }
+    ftk.SequenceAnimation = SequenceAnimation;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
@@ -389,6 +516,7 @@ var ftk;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
+    ftk.VERSION = '1.0.0.1';
     function NewInstance(typename, ...args) {
         const g = window;
         const f = g[typename];
@@ -427,6 +555,23 @@ var ftk;
                 this.mHandlers.forEach((handler) => {
                     handler.apply(ctx, args);
                 });
+            }
+        }
+        acall(ctx, ...args) {
+            if (this.mHandlers && this.mHandlers.length > 0) {
+                let handlers = this.mHandlers;
+                let promise = new Promise((resolve, reject) => {
+                    try {
+                        handlers.forEach((handler) => {
+                            handler.apply(ctx, args);
+                        });
+                        resolve();
+                    }
+                    catch (e) {
+                        reject(e);
+                    }
+                });
+                promise.then(() => { }).catch(() => { });
             }
         }
     }
@@ -474,13 +619,21 @@ var ftk;
             this.mListeners = undefined;
         }
         emit(evt, ...args) {
-            this.emitEx(this, evt, ...args);
+            this.emitEx(false, this, evt, ...args);
         }
-        emitEx(thisArg, evt, ...args) {
+        asyncEmit(evt, ...args) {
+            this.emitEx(true, this, evt, ...args);
+        }
+        emitEx(isasync, thisArg, evt, ...args) {
             if (this.mListeners) {
                 let handlerList = this.mListeners.get(evt);
                 if (handlerList) {
-                    handlerList.call(thisArg, ...args);
+                    if (isasync) {
+                        handlerList.acall(thisArg, ...args);
+                    }
+                    else {
+                        handlerList.call(thisArg, ...args);
+                    }
                 }
             }
         }
@@ -689,6 +842,292 @@ var ftk;
             return output;
         }
         utility.UTF8BufferDecode = UTF8BufferDecode;
+        let Path;
+        (function (Path) {
+            const splitPathRegex = /^(\/?|)([\s\S]*?)(?:(\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
+            const urlRegex = /(\S+):\/\/([\w\-_]+(?:\.[\w\-_]+)+)(?::(\d+))?([^=\?\s]*)?([\@?#].*)?/;
+            Path.sep = '/';
+            function _split_path_params(path) {
+                let x = path.indexOf('?');
+                if (x < 0) {
+                    x = path.indexOf('#');
+                }
+                if (x < 0) {
+                    return [path];
+                }
+                return [path.substr(0, x), path.substr(x)];
+            }
+            function _url_parse(path) {
+                let m = urlRegex.exec(path);
+                if (!m || (!m[1])) {
+                    let s = _split_path_params(path);
+                    return {
+                        path: s[0],
+                        params: s[1]
+                    };
+                }
+                return {
+                    protocol: m[1],
+                    hostname: m[2],
+                    port: (m[3] ? parseInt(m[3], 10) : undefined),
+                    path: (m[4] ? m[4] : Path.sep),
+                    params: m[5]
+                };
+            }
+            function _split_path(path) {
+                return path.split(Path.sep).filter((p) => p && p.length > 0);
+            }
+            function _normalize_parts(parts) {
+                let up = 0;
+                for (let i = parts.length - 1; i >= 0; i--) {
+                    let last = parts[i];
+                    if (last === '.') {
+                        parts.splice(i, 1);
+                    }
+                    else if (last === '..') {
+                        parts.splice(i, 1);
+                        up++;
+                    }
+                    else if (up) {
+                        parts.splice(i, 1);
+                        up--;
+                    }
+                }
+                return parts;
+            }
+            function _path_parse(path) {
+                let m = splitPathRegex.exec(path);
+                if (!m) {
+                    return { basename: path };
+                }
+                return {
+                    rootname: m[1],
+                    dirname: m[2],
+                    basename: m[3],
+                    extname: m[4]
+                };
+            }
+            function _url_to_string(url) {
+                let r = '';
+                if (url.port) {
+                    r += url.protocol;
+                    r += "://";
+                }
+                if (url.hostname) {
+                    r += url.hostname;
+                }
+                if (url.port) {
+                    r += ':' + url.port.toString();
+                }
+                if (url.path) {
+                    if (r.length > 0 && !_is_absolute_path(url.path)) {
+                        r += Path.sep;
+                    }
+                    r += url.path;
+                }
+                if (url.params) {
+                    r += url.params;
+                }
+                return r;
+            }
+            function _path_to_string(path) {
+                let r = '';
+                if (path.rootname) {
+                    r += path.rootname;
+                }
+                if (path.dirname) {
+                    r += path.dirname;
+                }
+                if (path.basename) {
+                    r += path.basename;
+                }
+                if (path.extname) {
+                    if (!path.extname.startsWith('.')) {
+                        r += '.';
+                    }
+                    r += path.extname;
+                }
+                return r;
+            }
+            function _is_absolute_path(path) {
+                return path.startsWith(Path.sep);
+            }
+            function _is_end_slash(path) {
+                return path.endsWith(Path.sep);
+            }
+            function normalize(path) {
+                let url = _url_parse(path);
+                let pathname = url.path;
+                if (pathname && pathname.length != 0) {
+                    let isabs = _is_absolute_path(pathname);
+                    let isendslash = _is_end_slash(pathname);
+                    pathname = _normalize_parts(_split_path(pathname)).join(Path.sep);
+                    if (!pathname && !isabs) {
+                        pathname = '.';
+                    }
+                    if (pathname && isendslash) {
+                        pathname += Path.sep;
+                    }
+                    if (isabs) {
+                        pathname = Path.sep + pathname;
+                    }
+                }
+                url.path = pathname;
+                return _url_to_string(url);
+            }
+            Path.normalize = normalize;
+            function join(...args) {
+                if (args.length === 0) {
+                    return '';
+                }
+                if (args.length === 1) {
+                    return args[0];
+                }
+                let first = args[0];
+                let url = _url_parse(first);
+                let pathname = url.path;
+                let isabs = _is_absolute_path(pathname);
+                let parts = _split_path(pathname);
+                for (let i = 1; i < args.length; ++i) {
+                    parts.push(..._split_path(args[i]));
+                }
+                pathname = _normalize_parts(parts).join(Path.sep);
+                if (isabs) {
+                    pathname = Path.sep + pathname;
+                }
+                url.path = pathname;
+                return _url_to_string(url);
+            }
+            Path.join = join;
+            function urlpath(url) {
+                return _url_parse(url).path;
+            }
+            Path.urlpath = urlpath;
+            function isurl(path) {
+                return urlRegex.test(path);
+            }
+            Path.isurl = isurl;
+            function resolve(path, pwd) {
+                let workpath = pwd ? pwd : Path.sep;
+                if (isurl(path) || _is_absolute_path(path)) {
+                    return path;
+                }
+                return join(workpath, path);
+            }
+            Path.resolve = resolve;
+            function relative(path, to, pwd) {
+                if (isurl(to)) {
+                    return to;
+                }
+                else {
+                    let fromParts = _split_path(resolve(path, pwd));
+                    let toParts = _split_path(resolve(to, pwd));
+                    let length = Math.min(fromParts.length, toParts.length);
+                    let samePartsLength = length;
+                    for (let i = 0; i < length; i++) {
+                        if (fromParts[i] !== toParts[i]) {
+                            samePartsLength = i;
+                            break;
+                        }
+                    }
+                    let outputParts = [];
+                    for (let i = samePartsLength; i < fromParts.length; i++) {
+                        outputParts.push('..');
+                    }
+                    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+                    return outputParts.join(Path.sep);
+                }
+            }
+            Path.relative = relative;
+            function extname(path) {
+                let result = _path_parse(urlpath(path));
+                if (result.extname) {
+                    return result.extname;
+                }
+                return '';
+            }
+            Path.extname = extname;
+            function basename(path) {
+                let result = _path_parse(urlpath(path));
+                if (result.basename) {
+                    return result.basename;
+                }
+                return '';
+            }
+            Path.basename = basename;
+            function lastpart(path) {
+                let result = _path_parse(urlpath(path));
+                let n = '';
+                if (result.basename) {
+                    n += result.basename;
+                }
+                if (result.extname) {
+                    n += result.extname;
+                }
+                return n;
+            }
+            Path.lastpart = lastpart;
+            function dirname(path) {
+                let result = _path_parse(urlpath(path));
+                if (result.dirname) {
+                    return result.dirname;
+                }
+                return '';
+            }
+            Path.dirname = dirname;
+            function chextension(path, name) {
+                let u = _url_parse(path);
+                let pathname = u.path;
+                let p = _path_parse(pathname);
+                p.extname = name;
+                pathname = _path_to_string(p);
+                u.path = pathname;
+                return _url_to_string(u);
+            }
+            Path.chextension = chextension;
+            function chbasename(path, name) {
+                let u = _url_parse(path);
+                let pathname = u.path;
+                let p = _path_parse(pathname);
+                p.basename = name;
+                pathname = _path_to_string(p);
+                u.path = pathname;
+                return _url_to_string(u);
+            }
+            Path.chbasename = chbasename;
+            function chlastpart(path, name) {
+                let u = _url_parse(path);
+                let pathname = u.path;
+                let p = _path_parse(pathname);
+                p.basename = name;
+                p.extname = undefined;
+                pathname = _path_to_string(p);
+                u.path = pathname;
+                return _url_to_string(u);
+            }
+            Path.chlastpart = chlastpart;
+            function isabsolute(path) {
+                return _is_absolute_path(urlpath(path));
+            }
+            Path.isabsolute = isabsolute;
+        })(Path = utility.Path || (utility.Path = {}));
+        let api;
+        (function (api) {
+            function createOffscreenCanvas(width, height) {
+                let globalThis = window;
+                if (globalThis["OffscreenCanvas"]) {
+                    let OffscreenCanvas = globalThis["OffscreenCanvas"];
+                    return new OffscreenCanvas(width, height);
+                }
+                else {
+                    let OffscreenCanvas = document.createElement('canvas');
+                    OffscreenCanvas.width = width;
+                    OffscreenCanvas.height = height;
+                    return OffscreenCanvas;
+                }
+            }
+            api.createOffscreenCanvas = createOffscreenCanvas;
+        })(api = utility.api || (utility.api = {}));
     })(utility = ftk.utility || (ftk.utility = {}));
 })(ftk || (ftk = {}));
 var ftk;
@@ -848,11 +1287,11 @@ var ftk;
             this.setRectangle(value.clone());
             this.OnResized();
         }
-        get size() {
+        get Size() {
             let r = this.getRectangle();
             return r.size;
         }
-        set size(value) {
+        set Size(value) {
             let r = this.getRectangle();
             r.size = value;
             this.setRectangle(r);
@@ -879,7 +1318,7 @@ var ftk;
             this.OnResized();
         }
         Resize(w, h) {
-            this.size = new ftk.Size(w, h);
+            this.Size = new ftk.Size(w, h);
         }
         get Angle() {
             return this.mAngle;
@@ -899,7 +1338,7 @@ var ftk;
         set BasePoint(pos) {
             this.mBasePoint = pos.clone();
         }
-        setBasePointToCenter() {
+        SetBasePointToCenter() {
             let r = this.getRectangle();
             this.mBasePoint.x = r.w / 2;
             this.mBasePoint.y = r.h / 2;
@@ -917,6 +1356,9 @@ var ftk;
             return [];
         }
         AddAnimation(animation) {
+            if (!animation.ValidateTarget(this)) {
+                throw new TypeError('Animation ValidateTarget failed.');
+            }
             if (!this.mAnimations) {
                 this.mAnimations = new Array();
             }
@@ -991,6 +1433,11 @@ var ftk;
             }
         }
         DispatchNoticeEvent(ev, forced) {
+            if (ev.Name === 'Engine.VisibilityStateChanged') {
+                let visible = (ev.Args.visible);
+                let timestamp = (ev.Args.timestamp);
+                this.OnEngineVisibilityStateChanged(visible, timestamp);
+            }
             this.OnDispatchNoticeEvent(ev, forced);
         }
         Update(timestamp) {
@@ -1002,9 +1449,33 @@ var ftk;
             }
             this.OnUpdate(timestamp);
         }
-        OnResized() {
+        toTexture() {
+            let r = this.getRectangle();
+            let canvas = ftk.utility.api.createOffscreenCanvas(r.w, r.h);
+            let rc = canvas.getContext('2d');
+            if (rc) {
+                rc.translate(-r.x, -r.y);
+                this.Rander(rc);
+                rc.translate(r.x, r.y);
+            }
+            return ftk.createTexture(canvas);
+        }
+        OnEngineVisibilityStateChanged(visible, timestamp) {
+            if (this.mAnimations) {
+                let anis = this.mAnimations;
+                for (let a of anis) {
+                    if (visible) {
+                        a.Resume(timestamp);
+                    }
+                    else {
+                        a.Suspend(timestamp);
+                    }
+                }
+            }
         }
         OnUpdate(_timestamp) {
+        }
+        OnResized() {
         }
         OnDispatchTouchEvent(_ev, _forced) {
         }
@@ -1048,16 +1519,17 @@ var ftk;
         constructor() {
             super(0, 0, 0, 0);
             this.mParticles = new Array();
-            this.mTicks = 0;
-            this.mLastUpdateTime = 0;
+            this.mBufferParticles = new Array();
+            this.mParticleEmitters = new Array();
+            this.mLastUpdateTime = -1;
             this.mUpdateTime = 0;
-            this.mParticleRander = null;
+            this.mSuspendTime = 0;
         }
         get Particles() {
             return this.mParticles;
         }
-        get Ticks() {
-            return this.mTicks;
+        get Emitters() {
+            return this.mParticleEmitters;
         }
         get LastUpdateTime() {
             return this.mLastUpdateTime;
@@ -1068,45 +1540,69 @@ var ftk;
         AddParticle(particle) {
             this.mParticles.push(particle);
         }
+        ClearParticle() {
+            this.mParticles.length = 0;
+        }
+        AddEmitter(emitter) {
+            this.mParticleEmitters.push(emitter);
+        }
+        RemoveEmitter(emitter) {
+            this.mParticleEmitters = this.mParticleEmitters.filter((e) => e != emitter);
+        }
+        ClearEmitter() {
+            this.mParticleEmitters.length = 0;
+        }
         DispatchTouchEvent(_ev, _forced) {
         }
         DispatchMouseEvent(_ev, _forced) {
         }
         DispatchKeyboardEvent(_ev, _forced) {
         }
+        OnUpdate(timestamp) {
+            if (this.mLastUpdateTime < 0) {
+                this.mLastUpdateTime = timestamp;
+            }
+            this.mUpdateTime = timestamp;
+            let incremental = timestamp - this.mLastUpdateTime;
+            let arr = this.mParticles;
+            let buf = this.mBufferParticles;
+            let box = this.getRectangle();
+            for (let p of arr) {
+                p.Update(incremental, box);
+                if (p.active) {
+                    buf.push(p);
+                }
+            }
+            this.SwapBuffer();
+            for (let pe of this.mParticleEmitters) {
+                pe.Update(timestamp, this);
+            }
+            this.mLastUpdateTime = timestamp;
+        }
         OnRander(rc) {
             let r = this.getRectangle();
             rc.beginPath();
             rc.rect(r.x, r.y, r.w, r.h);
             rc.clip();
-            if (this.mParticleRander) {
-                let randerHook = this.mParticleRander;
-                this.mParticles.forEach((particle) => { randerHook.call(this, rc, particle); });
+            for (let p of this.mParticles) {
+                p.Render(rc);
+            }
+        }
+        OnEngineVisibilityStateChanged(visible, timestamp) {
+            super.OnEngineVisibilityStateChanged(visible, timestamp);
+            if (visible) {
+                this.mLastUpdateTime = timestamp - (this.mSuspendTime - this.mLastUpdateTime);
+                this.mSuspendTime = 0;
             }
             else {
-                this.mParticles.forEach((particle) => { particle.Render(rc); });
+                this.mSuspendTime = timestamp;
             }
         }
-        Update(timestamp) {
-            this.mUpdateTime = timestamp;
-            if (!this.OnUpdate()) {
-                let arr = this.mParticles;
-                for (let p of arr) {
-                    p.Update(timestamp);
-                }
-                let j = 0;
-                for (let p of arr) {
-                    if (p.active) {
-                        arr[j++] = p;
-                    }
-                }
-                arr.length = j;
-            }
-            ++this.mTicks;
-            this.mLastUpdateTime = timestamp;
-        }
-        OnUpdate() {
-            return false;
+        SwapBuffer() {
+            let t = this.mParticles;
+            this.mParticles = this.mBufferParticles;
+            this.mBufferParticles = t;
+            this.mBufferParticles.length = 0;
         }
     }
     ftk.ParticleSprite = ParticleSprite;
@@ -1119,38 +1615,50 @@ var ftk;
             this.h = 0;
             this.vx = 0;
             this.vy = 0;
-            this.ax = 0;
-            this.ay = 0;
             this.maxLife = 0;
             this.age = 0;
-            this.exp = 0;
-            this.gravity = 0.07;
-            this.drag = 0.998;
-            this.birth = -1;
+            this.gravity = 1;
+            this.drag = 1;
+            this.elastic = 0;
             this.active = true;
         }
-        Update(timestamp) {
-            let r = this.PA.Box;
-            if (this.active || r.isInside(this.x, this.y)) {
-                if (this.birth < 0) {
-                    this.birth = timestamp;
-                }
-                else {
-                    this.age = timestamp - this.birth;
-                }
+        Update(incremental, rect) {
+            if (this.active) {
+                this.age += incremental;
                 if (this.age >= this.maxLife) {
                     this.active = false;
                 }
-                this.vy += this.gravity + this.ay;
-                this.vx += this.ax;
                 if (this.drag !== 1) {
                     this.vx *= this.drag;
+                    this.vy *= this.drag;
                 }
+                this.vy += this.gravity;
                 this.x += this.vx;
                 this.y += this.vy;
-                if (this.exp !== 0) {
-                    this.w += this.exp;
-                    this.h += this.exp;
+                if (this.elastic !== 0) {
+                    let right = rect.right;
+                    let bottom = rect.bottom;
+                    if (this.x <= rect.x || this.x >= right) {
+                        this.vx = (-this.vx) * this.elastic;
+                        if (this.x <= rect.x) {
+                            this.x = rect.x;
+                        }
+                        else if (this.x > right) {
+                            this.x = right;
+                        }
+                    }
+                    if (this.y <= rect.y || this.y >= bottom) {
+                        this.vy = (-this.vy) * this.elastic;
+                        if (this.y <= rect.y) {
+                            this.y = rect.y;
+                        }
+                        else if (this.y > bottom) {
+                            this.y = bottom;
+                        }
+                    }
+                }
+                else if (!rect.isInside(this.x, this.y)) {
+                    this.active = false;
                 }
             }
         }
@@ -1293,12 +1801,22 @@ var ftk;
             super();
             this.mEngineUpdateEventArg = new ftk.EngineEvent(this, 0);
             this.mEngineRanderEventArg = new ftk.EngineEvent(this, null);
+            this.mNEventEmitter = new ftk.EventEmitter();
             canvas.addEventListener("mousedown", (ev) => { this.OnMouseDown(ev); });
             canvas.addEventListener("mouseup", (ev) => { this.OnMouseUp(ev); });
             canvas.addEventListener("mousemove", (ev) => { this.OnMouseMove(ev); });
+            document.addEventListener("visibilitychange", () => {
+                this.OnVisibilityState(document.visibilityState == "visible");
+            });
+            window.addEventListener('offline', () => {
+                this.OnOnlineState(false);
+            });
+            window.addEventListener('online', () => {
+                this.OnOnlineState(true);
+            });
             this.mCanvas = canvas;
             this.mRC = canvas.getContext("2d", { alpha: false });
-            this.mOffscreenCanvas = AbstractEngine.createOffscreenCanvas(this.mCanvas.width, this.mCanvas.height);
+            this.mOffscreenCanvas = ftk.utility.api.createOffscreenCanvas(this.mCanvas.width, this.mCanvas.height);
             this.mOffscreenRC = this.mOffscreenCanvas.getContext("2d", { alpha: false });
             this.mRootNode = new ftk.Stage(canvas.width, canvas.height);
             this.mEventPrevTarget = null;
@@ -1308,6 +1826,8 @@ var ftk;
             this.mFrameRate = 60;
             this.mLastRanderDuration = 0;
             this.DebugInfoVisible = false;
+            this.mVisibilityState = !document.hidden;
+            this.mOnlineState = window.navigator.onLine;
         }
         get FrameRate() { return this.mFrameRate; }
         get ViewportWidth() { return this.mCanvas.width; }
@@ -1319,10 +1839,18 @@ var ftk;
         get LastRanderDuration() {
             return this.mLastRanderDuration;
         }
+        get VisibilityState() {
+            return this.mVisibilityState;
+        }
+        get OnlineState() {
+            return this.mOnlineState;
+        }
         Run() {
             this.mRC.clearRect(0, 0, this.ViewportWidth, this.ViewportHeight);
             this.StartLoop();
             this.OnRun();
+        }
+        Pause() {
         }
         Notify(source, name, broadcast, message) {
             let ev = new ftk.NoticeEvent(source, name, broadcast, message);
@@ -1330,8 +1858,29 @@ var ftk;
             if (broadcast) {
                 root.DispatchNoticeEvent(ev, false);
             }
-            this.emit(name, ev);
-            return undefined;
+            this.mNEventEmitter.asyncEmit(name, ev);
+        }
+        OnNotify(name, listener) {
+            this.mNEventEmitter.addListener(name, listener);
+        }
+        OnVisibilityState(visible) {
+            this.mVisibilityState = visible;
+            let ev = new ftk.NoticeEvent(this, 'Engine.VisibilityStateChanged', true, {
+                visible,
+                timestamp: performance.now()
+            });
+            this.Root.DispatchNoticeEvent(ev, true);
+            this.emit(visible ? 'visible' : 'hidden', visible);
+            console.log('Engine.VisibilityStateChanged', visible);
+        }
+        OnOnlineState(online) {
+            this.mOnlineState = online;
+            let ev = new ftk.NoticeEvent(this, 'Engine.OnlineStateChanged', true, {
+                online,
+                timestamp: performance.now()
+            });
+            this.Root.DispatchNoticeEvent(ev, true);
+            this.emit(online ? 'online' : 'offline', online);
         }
         setFrameRate(value) { this.mFrameRate = value; }
         StartLoop() {
@@ -1347,11 +1896,13 @@ var ftk;
             requestAnimationFrame(looper);
         }
         MainLoop(timestamp) {
-            let root = this.Root;
-            root.Update(timestamp);
-            this.mEngineUpdateEventArg.Args = timestamp;
-            this.emit("update", this.mEngineUpdateEventArg);
-            this.Rander();
+            if (this.VisibilityState) {
+                let root = this.Root;
+                root.Update(timestamp);
+                this.mEngineUpdateEventArg.Args = timestamp;
+                this.emit("update", this.mEngineUpdateEventArg);
+                this.Rander();
+            }
         }
         Rander() {
             let now = Date.now();
@@ -1427,19 +1978,6 @@ var ftk;
         }
         OnMouseMove(ev) {
             this.OnMouseEvent(ftk.InputEventType.MouseMove, ev);
-        }
-        static createOffscreenCanvas(width, height) {
-            let globalThis = window;
-            if (globalThis["OffscreenCanvas"]) {
-                let OffscreenCanvas = globalThis["OffscreenCanvas"];
-                return new OffscreenCanvas(width, height);
-            }
-            else {
-                let OffscreenCanvas = document.createElement('canvas');
-                OffscreenCanvas.width = width;
-                OffscreenCanvas.height = height;
-                return OffscreenCanvas;
-            }
         }
     }
     ftk.AbstractEngine = AbstractEngine;
@@ -1545,11 +2083,11 @@ var ftk;
             this.addListener("ready", () => {
                 if (this.mBackgroundLayer) {
                     if (this.mLogo) {
-                        this.mBackgroundLayer.RemoveNode(this.mLogo.Id);
+                        this.mBackgroundLayer.Remove(this.mLogo.Id);
                         this.mLogo = undefined;
                     }
                     if (this.mLoadingProgressBar) {
-                        this.mBackgroundLayer.RemoveNode(this.mLoadingProgressBar.Id);
+                        this.mBackgroundLayer.Remove(this.mLoadingProgressBar.Id);
                         this.mLoadingProgressBar = undefined;
                     }
                     this.Root.RemoveLayer(this.mBackgroundLayer.Id);
@@ -1622,7 +2160,7 @@ var ftk;
             let x = (this.ViewportWidth - size) / 2;
             let y = (this.ViewportHeight - size) / 2;
             this.mLogo = new EngineLogoSprite(x, y, size, size);
-            this.AddBackgroundLayer().AddNode(this.mLogo);
+            this.AddBackgroundLayer().Add(this.mLogo);
         }
         AddLoadingProgressBar() {
             let size = Math.min(this.ViewportWidth, this.ViewportHeight) / 5;
@@ -1630,7 +2168,7 @@ var ftk;
             let y = (this.ViewportHeight - size) / 2;
             this.mLoadingProgressBar = new ftk.ui.CircularProgressBar(x, y, size, size);
             this.mLoadingProgressBar.Visible = false;
-            this.AddBackgroundLayer().AddNode(this.mLoadingProgressBar);
+            this.AddBackgroundLayer().Add(this.mLoadingProgressBar);
         }
     }
     let _EngineImpl = null;
@@ -1653,7 +2191,11 @@ var ftk;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
-    const PI_HALF = (Math.PI / 2);
+    ftk.PI_HALF = (Math.PI / 2);
+    ftk.PI_1_5X = (Math.PI + ftk.PI_HALF);
+    ftk.PI_2_0X = Math.PI * 2;
+    ftk.RAD = Math.PI / 180;
+    ftk.DEG = 180 / Math.PI;
     class Point {
         constructor(x, y) {
             this.x = x || 0;
@@ -1687,6 +2229,9 @@ var ftk;
             this.x = basept.x + (x * cosValue - y * sinValue);
             this.y = basept.y + (x * sinValue + y * cosValue);
         }
+        equal(b) {
+            return this.x === b.x && this.y === b.y;
+        }
         static distance(a, b) {
             let x = Math.abs(a.x - b.x);
             let y = Math.abs(a.y - b.y);
@@ -1697,6 +2242,9 @@ var ftk;
             p.rotate(angle, basept);
             return p;
         }
+        static equal(a, b) {
+            return a.equal(b);
+        }
     }
     ftk.Point = Point;
     class Size {
@@ -1706,6 +2254,12 @@ var ftk;
         }
         clone() {
             return new Size(this.cx, this.cy);
+        }
+        equal(b) {
+            return this.cx === b.cx && this.cy === b.cy;
+        }
+        static equal(a, b) {
+            return a.equal(b);
         }
     }
     ftk.Size = Size;
@@ -1890,12 +2444,15 @@ var ftk;
             this.w = endX - startX;
             this.h = endY - startY;
         }
+        equal(b) {
+            return this.x === b.x && this.y === b.y && this.w === b.w && this.h === b.h;
+        }
         intersection(r1, r2) {
             let merge = Rectangle.union(r1, r2);
-            let startX = r1.x == merge.x ? r2.x : r1.x;
-            let endX = r1.right == merge.right ? r2.right : r1.right;
-            let startY = r1.y == merge.y ? r2.y : r1.y;
-            let endY = r1.bottom == merge.bottom ? r2.bottom : r1.bottom;
+            let startX = r1.x === merge.x ? r2.x : r1.x;
+            let endX = r1.right === merge.right ? r2.right : r1.right;
+            let startY = r1.y === merge.y ? r2.y : r1.y;
+            let endY = r1.bottom === merge.bottom ? r2.bottom : r1.bottom;
             this.x = startX;
             this.y = startY;
             this.w = endX - startX;
@@ -1945,11 +2502,14 @@ var ftk;
         }
         static intersection(r1, r2) {
             let merge = Rectangle.union(r1, r2);
-            let startX = r1.x == merge.x ? r2.x : r1.x;
-            let endX = r1.right == merge.right ? r2.right : r1.right;
-            let startY = r1.y == merge.y ? r2.y : r1.y;
-            let endY = r1.bottom == merge.bottom ? r2.bottom : r1.bottom;
+            let startX = r1.x === merge.x ? r2.x : r1.x;
+            let endX = r1.right === merge.right ? r2.right : r1.right;
+            let startY = r1.y === merge.y ? r2.y : r1.y;
+            let endY = r1.bottom === merge.bottom ? r2.bottom : r1.bottom;
             return new Rectangle(startX, startY, endX - startX, endY - startY);
+        }
+        static equal(a, b) {
+            return a.equal(b);
         }
     }
     ftk.Rectangle = Rectangle;
@@ -1994,8 +2554,11 @@ var ftk;
         get center() {
             return new Point(this.start.x + ((this.end.x - this.start.x) / 2), this.start.y + ((this.end.y - this.start.y) / 2));
         }
+        equal(b) {
+            return this.start.equal(b.start) && this.end.equal(b.end);
+        }
         static isInLineEx(point, lstart, lend) {
-            return (((point.x - lstart.x) * (lstart.y - lend.y)) == ((lstart.x - lend.x) * (point.y - lstart.y))
+            return (((point.x - lstart.x) * (lstart.y - lend.y)) === ((lstart.x - lend.x) * (point.y - lstart.y))
                 && (point.x >= Math.min(lstart.x, lend.x) && point.x <= Math.max(lstart.x, lend.x))
                 && ((point.y >= Math.min(lstart.y, lend.y)) && (point.y <= Math.max(lstart.y, lend.y))));
         }
@@ -2062,10 +2625,13 @@ var ftk;
             let v4 = b.end.y - b.start.y;
             let fAngle0 = (v1 * v3 + v2 * v4) / ((Math.sqrt(v1 * v1 + v2 * v2)) * (Math.sqrt(v3 * v3 + v4 * v4)));
             let fAngle = Math.acos(fAngle0);
-            if (fAngle >= PI_HALF) {
+            if (fAngle >= ftk.PI_HALF) {
                 fAngle = Math.PI - fAngle;
             }
             return fAngle;
+        }
+        static equal(a, b) {
+            return a.equal(b);
         }
     }
     ftk.LineSegment = LineSegment;
@@ -2099,6 +2665,9 @@ var ftk;
         isIntersect(a) {
             return Circle.isIntersect(this, a);
         }
+        equal(b) {
+            return this.center.equal(b.center) && this.radius === b.radius;
+        }
         get box() {
             let s = this.radius + this.radius;
             return new Rectangle(this.center.x - this.radius, this.center.y - this.radius, s, s);
@@ -2106,6 +2675,9 @@ var ftk;
         static isIntersect(a, b) {
             let d = Point.distance(a.center, b.center);
             return d < a.radius || d < b.radius;
+        }
+        static equal(a, b) {
+            return a.equal(b);
         }
     }
     ftk.Circle = Circle;
@@ -2144,7 +2716,7 @@ var ftk;
         }
         get box() {
             let vs = this.mVertexs;
-            if (vs.length == 0) {
+            if (vs.length === 0) {
                 return new Rectangle();
             }
             let left = vs[0].x;
@@ -2207,6 +2779,11 @@ var ftk;
                 this.mVertexs.push(point.clone());
             });
         }
+        pushVertex(x, y) {
+            let p = new Point(x, y);
+            this.mVertexs.push(p);
+            return p;
+        }
         popVertex() {
             return this.mVertexs.pop();
         }
@@ -2215,6 +2792,19 @@ var ftk;
         }
         removeVertex(index, count) {
             this.mVertexs.splice(index, count);
+        }
+        equal(b) {
+            let av = this.mVertexs;
+            let bv = b.mVertexs;
+            if (av.length != bv.length) {
+                return false;
+            }
+            for (let i = 0; i < av.length; ++i) {
+                if (!av[i].equal(bv[i])) {
+                    return false;
+                }
+            }
+            return true;
         }
         static isBoundary(point, p) {
             let count = p.mVertexs.length - 1;
@@ -2244,6 +2834,9 @@ var ftk;
             }
             return isin;
         }
+        static equal(a, b) {
+            return a.equal(b);
+        }
     }
     ftk.Polygon = Polygon;
     class Vector {
@@ -2269,7 +2862,7 @@ var ftk;
             this.y = Math.sin(a) * value;
         }
         get normalized() {
-            return this.lengthQ == 1;
+            return this.lengthQ === 1;
         }
         get lengthQ() {
             return this.x * this.x + this.y * this.y;
@@ -2312,8 +2905,8 @@ var ftk;
         inner(v) {
             return this.x * v.x + this.y * v.y;
         }
-        epointual(v) {
-            return this.x == v.x && this.y == v.y;
+        equal(v) {
+            return this.x === v.x && this.y === v.y;
         }
         normalize() {
             let l = this.length;
@@ -2359,8 +2952,8 @@ var ftk;
         static inner(a, b) {
             return a.x * b.x + a.y * b.y;
         }
-        static epointual(a, b) {
-            return a.x == b.x && a.y == b.y;
+        static equal(a, b) {
+            return a.x === b.x && a.y === b.y;
         }
         static angleBetween(a, b) {
             return Math.atan2(Vector.cross(a, b), Vector.dot(a, b));
@@ -2373,6 +2966,388 @@ var ftk;
         }
     }
     ftk.Vector = Vector;
+    function DToR(angle) {
+        return angle * ftk.RAD;
+    }
+    ftk.DToR = DToR;
+    function RToD(angle) {
+        return angle * ftk.DEG;
+    }
+    ftk.RToD = RToD;
+})(ftk || (ftk = {}));
+var ftk;
+(function (ftk) {
+    const kStrokeBegin = 1;
+    const kFillBegin = 2;
+    const kPathBegin = 4;
+    const kNoneBegin = 0;
+    class GraphicsSprite extends ftk.RectangleSprite {
+        constructor() {
+            super(...arguments);
+            this.mDrawList = new Array();
+            this.mBeginState = kNoneBegin;
+        }
+        beginStroke(width, color) {
+            if ((this.mBeginState & kStrokeBegin) === kStrokeBegin) {
+                this.endStroke();
+            }
+            let beginPath = this.mBeginState === kNoneBegin;
+            this.mBeginState |= kStrokeBegin;
+            let c = color.toRGBAString();
+            this.mDrawList.push((rc) => {
+                rc.lineWidth = width;
+                rc.strokeStyle = c;
+            });
+            if (beginPath) {
+                this.mDrawList.push((rc) => {
+                    rc.beginPath();
+                });
+            }
+        }
+        beginFill(color) {
+            if ((this.mBeginState & kFillBegin) === kFillBegin) {
+                this.endFill();
+            }
+            let beginPath = this.mBeginState === kNoneBegin;
+            this.mBeginState |= kFillBegin;
+            let c = color.toRGBAString();
+            this.mDrawList.push((rc) => {
+                rc.fillStyle = c;
+            });
+            if (beginPath) {
+                this.mDrawList.push((rc) => {
+                    rc.beginPath();
+                });
+            }
+        }
+        beginLinearGradientFill(color, startX, startY, endX, endY) {
+            let start = new ftk.Point(startX, startY);
+            let end = new ftk.Point(endX, endY);
+            let d = ftk.Point.distance(start, end);
+            let s = (d / color.length) / d;
+            let colorList = new Array();
+            if ((this.mBeginState & kFillBegin) === kFillBegin) {
+                this.endFill();
+            }
+            for (const c of color) {
+                colorList.push(c.toRGBAString());
+            }
+            let beginPath = this.mBeginState === kNoneBegin;
+            this.mBeginState |= kFillBegin;
+            this.mDrawList.push((rc) => {
+                let gradient = rc.createLinearGradient(start.x, start.y, end.x, end.y);
+                let offset = 0;
+                for (let c of colorList) {
+                    gradient.addColorStop(offset, c);
+                    offset += s;
+                }
+                rc.fillStyle = gradient;
+            });
+            if (beginPath) {
+                this.mDrawList.push((rc) => {
+                    rc.beginPath();
+                });
+            }
+        }
+        beginRadialGradientFill(color, startX, startY, startR, endX, endY, endR) {
+            let start = new ftk.Point(startX, startY);
+            let end = new ftk.Point(endX, endY);
+            let d = ftk.Point.distance(start, end);
+            let s = (d / color.length) / d;
+            let colorList = new Array();
+            if ((this.mBeginState & kFillBegin) === kFillBegin) {
+                this.endFill();
+            }
+            for (const c of color) {
+                colorList.push(c.toRGBAString());
+            }
+            let beginPath = this.mBeginState === kNoneBegin;
+            this.mBeginState |= kFillBegin;
+            this.mDrawList.push((rc) => {
+                let gradient = rc.createRadialGradient(start.x, start.y, startR, end.x, end.y, endR);
+                let offset = 0;
+                for (let c of colorList) {
+                    gradient.addColorStop(offset, c);
+                    offset += s;
+                }
+                rc.fillStyle = gradient;
+            });
+            if (beginPath) {
+                this.mDrawList.push((rc) => {
+                    rc.beginPath();
+                });
+            }
+        }
+        beginClipPath() {
+            if ((this.mBeginState & kFillBegin) === kFillBegin) {
+                this.endClipPath();
+            }
+            let beginPath = this.mBeginState === kNoneBegin;
+            this.mBeginState |= kPathBegin;
+            if (beginPath) {
+                this.mDrawList.push((rc) => {
+                    rc.beginPath();
+                });
+            }
+        }
+        clear() {
+            this.mBeginState = kNoneBegin;
+            this.mDrawList.length = 0;
+        }
+        cubicCurveTo(c1x, c1y, c2x, c2y, x, y) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            this.mDrawList.push((rc) => {
+                rc.bezierCurveTo(c1x, c1y, c2x, c2y, x, y);
+            });
+        }
+        curveTo(cx, cy, x, y) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            this.mDrawList.push((rc) => {
+                rc.quadraticCurveTo(cx, cy, x, y);
+            });
+        }
+        arc(centerX, centerY, radius, startAngle, endAngle, anticlockwise) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            this.mDrawList.push((rc) => {
+                rc.arc(centerX, centerY, radius, startAngle, endAngle, anticlockwise);
+            });
+        }
+        arcTo(startX, startY, endX, endY, radius) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            this.mDrawList.push((rc) => {
+                rc.arcTo(startX, startY, endX, endY, radius);
+            });
+        }
+        circle(centerX, centerY, radius) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            this.mDrawList.push((rc) => {
+                rc.arc(centerX, centerY, radius, 0, ftk.PI_2_0X);
+            });
+        }
+        ellipse(x, y, w, h, rotation, startAngle, endAngle) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            let rx = w / 2;
+            let ry = h / 2;
+            let sa = startAngle ? startAngle : 0;
+            let ea = endAngle ? endAngle : ftk.PI_2_0X;
+            this.mDrawList.push((rc) => {
+                rc.ellipse(x, y, rx, ry, rotation, sa, ea);
+            });
+        }
+        rect(x, y, w, h) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            this.mDrawList.push((rc) => {
+                rc.rect(x, y, w, h);
+            });
+        }
+        roundRect(x, y, w, h, radius) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            this.mDrawList.push((rc) => {
+                rc.arc(x + radius, y + radius, radius, Math.PI, ftk.PI_1_5X);
+                rc.lineTo(w - radius + x, y);
+                rc.arc(w - radius + x, radius + y, radius, ftk.PI_1_5X, ftk.PI_2_0X);
+                rc.lineTo(w + x, h + y - radius);
+                rc.arc(w - radius + x, h - radius + y, radius, 0, ftk.PI_HALF);
+                rc.lineTo(radius + x, h + y);
+                rc.arc(radius + x, h - radius + y, radius, ftk.PI_HALF, Math.PI);
+            });
+        }
+        endFill() {
+            if ((this.mBeginState & kFillBegin) !== kFillBegin) {
+                return;
+            }
+            this.mBeginState &= (~kFillBegin);
+            this.mDrawList.push((rc) => {
+                rc.closePath();
+                rc.fill();
+            });
+        }
+        endStroke(close) {
+            if ((this.mBeginState & kStrokeBegin) !== kStrokeBegin) {
+                return;
+            }
+            this.mBeginState &= (~kStrokeBegin);
+            this.mDrawList.push((rc) => {
+                if (close) {
+                    rc.closePath();
+                }
+                rc.stroke();
+            });
+        }
+        endClipPath() {
+            if ((this.mBeginState & kPathBegin) !== kPathBegin) {
+                return;
+            }
+            this.mBeginState &= (~kPathBegin);
+            this.mDrawList.push((rc) => {
+                rc.closePath();
+                rc.clip();
+            });
+        }
+        lineTo(x, y) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            this.mDrawList.push((rc) => {
+                rc.lineTo(x, y);
+            });
+        }
+        moveTo(x, y) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            this.mDrawList.push((rc) => {
+                rc.moveTo(x, y);
+            });
+        }
+        polygon(vertexs) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            if (vertexs.length > 2) {
+                let first = vertexs[0].clone();
+                let vs = new Array();
+                for (let i = 1; i < vertexs.length; ++i) {
+                    vs.push(vertexs[i].clone());
+                }
+                this.mDrawList.push((rc) => {
+                    rc.moveTo(first.x, first.y);
+                    for (const v of vs) {
+                        rc.lineTo(v.x, v.y);
+                    }
+                    rc.closePath();
+                });
+            }
+        }
+        epolygon(x, y, radius, side) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            if (side > 2) {
+                const astep = (Math.PI + Math.PI) / side;
+                let angle = 0;
+                let vs = new Array();
+                for (let i = 0; i < side; ++i) {
+                    vs.push(new ftk.Point(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius));
+                    angle += astep;
+                }
+                let first = vs[0];
+                this.mDrawList.push((rc) => {
+                    rc.moveTo(first.x, first.y);
+                    for (let i = 1; i < vs.length; ++i) {
+                        let v = vs[i];
+                        rc.lineTo(v.x, v.y);
+                    }
+                    rc.closePath();
+                });
+            }
+        }
+        star(x, y, radius1, radius2, count, rotation) {
+            if (this.mBeginState === kNoneBegin) {
+                return;
+            }
+            if (count > 2) {
+                const astep = (Math.PI + Math.PI) / count;
+                let rot = rotation || 0;
+                let angle1 = rot;
+                let angle2 = astep / 2 + rot;
+                let vs = new Array();
+                for (let i = 0; i < count; ++i) {
+                    vs.push(new ftk.Point(x + Math.cos(angle1) * radius1, y + Math.sin(angle1) * radius1));
+                    vs.push(new ftk.Point(x + Math.cos(angle2) * radius2, y + Math.sin(angle2) * radius2));
+                    angle1 += astep;
+                    angle2 += astep;
+                }
+                vs.push(new ftk.Point(x + Math.cos(angle1) * radius1, y + Math.sin(angle1) * radius1));
+                let first = vs[0];
+                this.mDrawList.push((rc) => {
+                    rc.moveTo(first.x, first.y);
+                    for (let i = 1; i < vs.length; ++i) {
+                        let v = vs[i];
+                        rc.lineTo(v.x, v.y);
+                    }
+                    rc.closePath();
+                });
+            }
+        }
+        clearRect(x, y, w, h) {
+            this.mDrawList.push((rc) => {
+                rc.clearRect(x, y, w, h);
+            });
+        }
+        fillBackground(color) {
+            let c = color.toRGBAString();
+            this.mDrawList.push((rc) => {
+                let r = this.getRectangle();
+                let f = rc.fillStyle;
+                rc.fillStyle = c;
+                rc.fillRect(0, 0, r.w, r.h);
+                rc.fillStyle = f;
+            });
+        }
+        drawTexture(t, dx, dy, dw, dh) {
+            this.mDrawList.push((rc) => {
+                t.Draw(rc, dx, dy, dw, dh);
+            });
+        }
+        beginText(fontName, fontSize) {
+            this.mDrawList.push((rc) => {
+                rc.save();
+                rc.font = fontSize.toString() + "px " + fontName;
+            });
+        }
+        text(s, dx, dy, dw, color) {
+            let c = color ? color.toRGBAString() : undefined;
+            this.mDrawList.push((rc) => {
+                let f = rc.fillStyle;
+                if (c) {
+                    rc.fillStyle = c;
+                }
+                rc.fillText(s, dx, dy, dw);
+                rc.fillStyle = f;
+            });
+        }
+        endText() {
+            this.mDrawList.push((rc) => {
+                rc.restore();
+            });
+        }
+        OnRander(rc) {
+            let rect = this.getRectangle();
+            rc.save();
+            rc.beginPath();
+            rc.rect(rect.x, rect.y, rect.w, rect.h);
+            rc.clip();
+            rc.translate(rect.x, rect.y);
+            for (const a of this.mDrawList) {
+                a(rc);
+            }
+            if ((this.mBeginState & kFillBegin) === kFillBegin) {
+                rc.stroke();
+            }
+            if ((this.mBeginState & kStrokeBegin) === kStrokeBegin) {
+                rc.stroke();
+            }
+            rc.restore();
+        }
+    }
+    ftk.GraphicsSprite = GraphicsSprite;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
@@ -2382,8 +3357,10 @@ var ftk;
         ResourceType[ResourceType["Video"] = 1] = "Video";
         ResourceType[ResourceType["Audio"] = 2] = "Audio";
         ResourceType[ResourceType["Text"] = 3] = "Text";
-        ResourceType[ResourceType["Blob"] = 4] = "Blob";
-        ResourceType[ResourceType["Raw"] = 5] = "Raw";
+        ResourceType[ResourceType["Font"] = 4] = "Font";
+        ResourceType[ResourceType["Blob"] = 5] = "Blob";
+        ResourceType[ResourceType["Animation"] = 6] = "Animation";
+        ResourceType[ResourceType["Raw"] = 7] = "Raw";
     })(ResourceType = ftk.ResourceType || (ftk.ResourceType = {}));
     class Resource {
         constructor(url, name) {
@@ -2553,13 +3530,94 @@ var ftk;
         }
     }
     ftk.RawResource = RawResource;
+    class AnimationResource extends Resource {
+        constructor(url, name) {
+            super(url, name);
+        }
+        get Type() { return ResourceType.Animation; }
+        OnLoad(resolve, reject) {
+            let xhr = new XMLHttpRequest();
+            xhr.onload = () => {
+                try {
+                    this.mAnimationData = JSON.parse(xhr.responseText);
+                    this.OnLoadAnimation(this.mAnimationData, resolve, reject);
+                }
+                catch (e) {
+                    reject(e);
+                }
+            };
+            xhr.onerror = (ev) => { reject(ev); };
+            xhr.onabort = (ev) => { reject(ev); };
+            xhr.responseType = "text";
+            xhr.open("GET", this.Url, true);
+        }
+    }
+    ftk.AnimationResource = AnimationResource;
+    let _extNameMap = new Map();
+    function _registerResourceType(extName, type) {
+        let ext = extName.toLowerCase();
+        let factoryFn;
+        switch (type) {
+            case ResourceType.Image:
+                factoryFn = (url, name) => new ImageResource(url, name);
+                break;
+            case ResourceType.Video:
+                factoryFn = (url, name) => new VideoResource(url, name);
+                break;
+            case ResourceType.Audio:
+                factoryFn = (url, name) => new AudioResource(url, name);
+                break;
+            case ResourceType.Text:
+                factoryFn = (url, name) => new TextResource(url, name);
+                break;
+            case ResourceType.Blob:
+                factoryFn = (url, name) => new BlobResource(url, name);
+                break;
+            case ResourceType.Raw:
+                factoryFn = (url, name) => new RawResource(url, name);
+                break;
+            default:
+                return;
+        }
+        while (ext.startsWith('.')) {
+            ext = ext.slice(0, 1);
+        }
+        _extNameMap.set(ext, factoryFn);
+    }
+    function registerResourceType(extName, type) {
+        if (typeof (extName) === 'string') {
+            _registerResourceType(extName, type);
+        }
+        else {
+            for (let en of extName) {
+                _registerResourceType(en, type);
+            }
+        }
+    }
+    ftk.registerResourceType = registerResourceType;
+    registerResourceType(["png", "jpg", "bmp", "jpeg", "gif", "ico", "tiff", "webp", "svg"], ResourceType.Image);
+    registerResourceType(["mpeg4", "webm", "mp4"], ResourceType.Video);
+    registerResourceType(["ogg", "mp3", "wav"], ResourceType.Audio);
+    registerResourceType(["txt", "xml", "vsh", "fsh", "atlas", "html", "json"], ResourceType.Text);
+    registerResourceType(["blob"], ResourceType.Blob);
+    registerResourceType(["bin"], ResourceType.Raw);
     class ResourceDBEditor {
         constructor() {
             this.mResourceList = new Map();
         }
-        Add(resource) {
-            this.mResourceList.set(resource.Name, resource);
-            return this;
+        Add(resource, name) {
+            if (typeof (resource) === 'string') {
+                let ext = ftk.utility.Path.extname(resource).toLowerCase();
+                if (ext.startsWith('.')) {
+                    ext = ext.substr(1);
+                }
+                let factoryFn = _extNameMap.get(ext);
+                if (!factoryFn) {
+                    factoryFn = (url, n) => new RawResource(url, n);
+                }
+                return this._Add(factoryFn(resource, name));
+            }
+            return this._Add(resource);
         }
         Clear() {
             this.mResourceList.clear();
@@ -2645,39 +3703,30 @@ var ftk;
         Edit() {
             return this;
         }
+        _Add(resource) {
+            this.mResourceList.set(resource.Name, resource);
+            return this;
+        }
     }
     ftk.ResourceDBEditor = ResourceDBEditor;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
     class ImageSprite extends ftk.RectangleSprite {
-        constructor(resource, w, h, id) {
+        constructor(texture, id) {
             super(0, 0, 0, 0, id);
-            if (resource) {
-                this.mImage = resource;
-            }
-            else {
-                this.mImage = new ftk.ImageResource("");
-            }
-            if (w && h) {
-                this.Resize(w, h);
-            }
-            else {
-                this.Resize(this.mImage.Image.naturalWidth, this.mImage.Image.naturalHeight);
-            }
-            let size = this.Box.size;
-            this.BasePoint = new ftk.Point(size.cx / 2, size.cy / 2);
+            this.mTexture = texture ? texture : ftk.EmptyTexture;
+            this.Resize(this.mTexture.Width, this.mTexture.Height);
         }
-        get Resource() {
-            return this.mImage;
+        get Texture() {
+            return this.mTexture;
         }
-        set Resource(value) {
-            this.mImage = value;
+        set Texture(value) {
+            this.mTexture = value;
         }
         OnRander(rc) {
-            let image = this.Resource.Image;
             let box = this.Box;
-            rc.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, box.x, box.y, box.w, box.h);
+            this.mTexture.Draw(rc, box.x, box.y, box.w, box.h);
         }
     }
     ftk.ImageSprite = ImageSprite;
@@ -2685,8 +3734,8 @@ var ftk;
 var ftk;
 (function (ftk) {
     class Layer {
-        constructor() {
-            this.mID = ftk.utility.GenerateIDString(32);
+        constructor(id) {
+            this.mID = id ? id : ftk.utility.GenerateIDString(32);
             this.mNodes = new Array();
             this.mVisible = true;
             this.mEventTransparent = true;
@@ -2713,11 +3762,11 @@ var ftk;
         set EventTransparent(value) {
             this.mEventTransparent = value;
         }
-        AddNode(node) {
+        Add(node) {
             this.mNodes.push(node);
             return this;
         }
-        RemoveNode(id) {
+        Remove(id) {
             for (let i = 0; i < this.mNodes.length; ++i) {
                 if (this.mNodes[i].Id === id) {
                     this.mNodes.splice(i--, 1);
@@ -2725,7 +3774,11 @@ var ftk;
             }
             return this;
         }
-        GetNode(id) {
+        RemoveAll() {
+            this.mNodes.length = 0;
+            return this;
+        }
+        Get(id) {
             for (let n of this.mNodes) {
                 if (n.Id === id) {
                     return n;
@@ -2807,9 +3860,14 @@ var ftk;
     }
     ftk.Layer = Layer;
     class ColoredLayer extends Layer {
-        constructor() {
-            super();
-            this.mBackgroundColor = new ftk.Color("#00F");
+        constructor(color, id) {
+            super(id);
+            if (color) {
+                this.mBackgroundColor = new ftk.Color(color);
+            }
+            else {
+                this.mBackgroundColor = new ftk.Color("#00F");
+            }
         }
         get BackgroundColor() {
             return this.mBackgroundColor;
@@ -2824,54 +3882,66 @@ var ftk;
         }
     }
     ftk.ColoredLayer = ColoredLayer;
+    let BackgroundImageRepeatStyle;
+    (function (BackgroundImageRepeatStyle) {
+        BackgroundImageRepeatStyle[BackgroundImageRepeatStyle["none"] = 0] = "none";
+        BackgroundImageRepeatStyle[BackgroundImageRepeatStyle["repeat"] = 1] = "repeat";
+        BackgroundImageRepeatStyle[BackgroundImageRepeatStyle["center"] = 2] = "center";
+        BackgroundImageRepeatStyle[BackgroundImageRepeatStyle["stretch"] = 3] = "stretch";
+        BackgroundImageRepeatStyle[BackgroundImageRepeatStyle["fitStretch"] = 4] = "fitStretch";
+    })(BackgroundImageRepeatStyle = ftk.BackgroundImageRepeatStyle || (ftk.BackgroundImageRepeatStyle = {}));
     class BackgroundImageLayer extends Layer {
-        constructor() {
-            super();
-            this.mBackgroundImage = new ftk.ImageResource("");
-            this.mRepeatStyle = "stretch";
-        }
-        get BackgroundImage() {
-            return this.mBackgroundImage;
-        }
-        set BackgroundImage(value) {
-            this.mBackgroundImage = value;
-        }
-        get RepeatStyle() {
-            return this.mRepeatStyle;
-        }
-        set RepeatStyle(value) {
-            this.mRepeatStyle = value;
+        constructor(texture, id) {
+            super(id);
+            this.BackgroundTexture = texture ? texture : ftk.EmptyTexture;
+            this.RepeatStyle = BackgroundImageRepeatStyle.stretch;
         }
         Rander(rc) {
-            let image = this.BackgroundImage.Image;
+            let texture = this.BackgroundTexture;
             let style = this.RepeatStyle;
-            if (style === "stretch") {
-                rc.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, 0, 0, rc.canvas.width, rc.canvas.height);
+            if (style === BackgroundImageRepeatStyle.stretch) {
+                texture.Draw(rc, 0, 0, rc.canvas.width, rc.canvas.height);
             }
-            else if (style === "fit-stretch") {
-                let fitRatioX = image.naturalWidth / rc.canvas.width;
-                let fitRatioY = image.naturalHeight / rc.canvas.height;
+            else if (style === BackgroundImageRepeatStyle.fitStretch) {
+                let fitRatioX = texture.Width / rc.canvas.width;
+                let fitRatioY = texture.Height / rc.canvas.height;
                 let fitratio = Math.min(fitRatioX, fitRatioY);
-                let w = image.naturalWidth * fitratio;
-                let h = image.naturalHeight * fitratio;
+                let w = texture.Width * fitratio;
+                let h = texture.Height * fitratio;
                 let x = (rc.canvas.width - w) / 2;
                 let y = (rc.canvas.height - h) / 2;
-                rc.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, x, y, w, h);
+                texture.Draw(rc, x, y, w, h);
             }
-            else if (style === "center") {
-                let x = (rc.canvas.width - image.naturalWidth) / 2;
-                let y = (rc.canvas.height - image.naturalHeight) / 2;
-                rc.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, x, y, image.naturalWidth, image.naturalHeight);
+            else if (style === BackgroundImageRepeatStyle.center) {
+                let x = (rc.canvas.width - texture.Width) / 2;
+                let y = (rc.canvas.height - texture.Height) / 2;
+                texture.Draw(rc, x, y, texture.Width, texture.Height);
             }
-            else if (style === "none") {
-                rc.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, 0, 0, image.naturalWidth, image.naturalHeight);
+            else if (style === BackgroundImageRepeatStyle.none) {
+                texture.Draw(rc, 0, 0, texture.Width, texture.Height);
             }
             else {
-                let pattern = rc.createPattern(image, 'repeat');
-                let oldfs = rc.fillStyle;
-                rc.fillStyle = pattern;
-                rc.fillRect(0, 0, rc.canvas.width, rc.canvas.height);
-                rc.fillStyle = oldfs;
+                let rw = rc.canvas.width % texture.Width;
+                let rh = rc.canvas.height % texture.Height;
+                let rwtx = texture.Clip(0, 0, rw, rc.canvas.height);
+                let rhtx = texture.Clip(0, 0, rc.canvas.width, rh);
+                let tw = texture.Width;
+                let th = texture.Height;
+                let cw = rc.canvas.width;
+                let ch = rc.canvas.height;
+                for (let x = 0; x < cw; x += tw) {
+                    for (let y = 0; y < ch; y += th) {
+                        if (cw - x < tw) {
+                            rwtx.Draw(rc, x, y, rhtx.Width, rhtx.Height);
+                        }
+                        else if (ch - y < th) {
+                            rhtx.Draw(rc, x, y, rhtx.Width, rhtx.Height);
+                        }
+                        else {
+                            texture.Draw(rc, x, y, tw, th);
+                        }
+                    }
+                }
             }
             super.Rander(rc);
         }
@@ -3043,6 +4113,8 @@ var ftk;
             this.BackgroundColor = new ftk.Color(0, 0, 255);
             this.BorderColor = new ftk.Color(255, 255, 255);
             this.Text = undefined;
+            this.FontName = "serif";
+            this.FontSize = 16;
         }
         OnRander(rc) {
             rc.lineWidth = this.LineWidth;
@@ -3053,6 +4125,7 @@ var ftk;
                 rc.textAlign = 'center';
                 rc.textBaseline = 'middle';
                 rc.fillStyle = this.ForegroundColor.toRGBAString();
+                rc.font = this.FontSize.toString() + 'px ' + this.FontName;
                 let c = this.getRectangle().center;
                 rc.fillText(this.Text, c.x, c.y);
             }
@@ -3119,8 +4192,12 @@ var ftk;
         }
         OnDrawShape(rc) {
             let r = this.getRectangle();
-            rc.fillRect(r.x, r.y, r.w, r.h);
-            rc.strokeRect(r.x, r.y, r.w, r.h);
+            if (this.BackgroundColor.A > 0) {
+                rc.fillRect(r.x, r.y, r.w, r.h);
+            }
+            if (this.BorderColor.A > 0) {
+                rc.strokeRect(r.x, r.y, r.w, r.h);
+            }
         }
     }
     ftk.RectangleShape = RectangleShape;
@@ -3200,6 +4277,217 @@ var ftk;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
+    class _Texture {
+        constructor(image, x, y, w, h) {
+            let iw;
+            let ih;
+            if (image instanceof HTMLImageElement) {
+                iw = image.naturalWidth;
+                ih = image.naturalHeight;
+            }
+            else if (image instanceof HTMLVideoElement) {
+                iw = image.videoWidth;
+                ih = image.videoHeight;
+            }
+            else {
+                iw = image.width;
+                ih = image.height;
+            }
+            let tx = x || 0;
+            let ty = y || 0;
+            let tw = w || iw;
+            let th = h || ih;
+            if (tx < 0) {
+                tx = 0;
+            }
+            else if (tx > iw) {
+                tx = iw;
+            }
+            if (ty < 0) {
+                ty = 0;
+            }
+            else if (ty > ih) {
+                ty = ih;
+            }
+            this.mRect = new ftk.Rectangle(tx, ty, tw, th);
+            if (this.mRect.right > iw) {
+                this.mRect.right = iw;
+            }
+            if (this.mRect.bottom > ih) {
+                this.mRect.bottom = ih;
+            }
+            this.mImage = image;
+        }
+        Draw(rc, dx, dy, dw, dh) {
+            let r = this.mRect;
+            if (r.w < 0 || r.h < 0) {
+                return;
+            }
+            rc.drawImage(this.mImage, r.x, r.y, r.w, r.h, dx, dy, dw, dh);
+        }
+        Clip(x, y, w, h) {
+            let sx = x;
+            let sy = y;
+            let sw = w;
+            let sh = h;
+            if (sx < 0) {
+                sx = 0;
+            }
+            else if (sx > this.mRect.w) {
+                sx = this.mRect.w;
+            }
+            if (sy < 0) {
+                sy = 0;
+            }
+            else if (sy > this.mRect.h) {
+                sy = this.mRect.h;
+            }
+            if (sw < 0) {
+                sw = 0;
+            }
+            else if (sw > this.mRect.w) {
+                sw = this.mRect.w;
+            }
+            if (sh < 0) {
+                sh = 0;
+            }
+            else if (sh > this.mRect.h) {
+                sh = this.mRect.h;
+            }
+            return new _Texture(this.mImage, sx + this.mRect.x, sy + this.mRect.y, sw, sh);
+        }
+        BuildOutline(threshold) {
+            let polygon = new ftk.Polygon();
+            let rc = ftk.utility.api.createOffscreenCanvas(this.mRect.w, this.mRect.h).getContext('2d');
+            if (rc) {
+                this.Draw(rc, 0, 0, this.Width, this.Height);
+                let img = rc.getImageData(0, 0, this.Width, this.Height);
+                const w = img.width << 2;
+                const a = threshold || 0;
+                let idx = 3;
+                let start = 0;
+                let v = new ftk.Point(-1, -1);
+                let vf = v;
+                let l = 0;
+                for (let y = 0; y < img.height; ++y) {
+                    for (let x = 0; x < img.width; ++x) {
+                        if (img.data[idx] > a) {
+                            if (x !== v.x) {
+                                if (l > 0) {
+                                    polygon.pushVertex(v.x, y - 1);
+                                    l = 0;
+                                }
+                                v = polygon.pushVertex(x, y);
+                            }
+                            else {
+                                ++l;
+                            }
+                            break;
+                        }
+                        idx += 4;
+                    }
+                    start += w;
+                    idx = start + 3;
+                }
+                vf = v;
+                start = img.data.length - w;
+                idx = start + 3;
+                l = 0;
+                for (let x = 0; x < img.width; ++x) {
+                    for (let y = img.height; y >= 0; --y) {
+                        if (img.data[idx] > a && (y > vf.y || x > vf.x)) {
+                            if (y !== v.y) {
+                                if (l > 0) {
+                                    polygon.pushVertex(x - 1, v.y);
+                                    l = 0;
+                                }
+                                v = polygon.pushVertex(x, y);
+                            }
+                            else {
+                                ++l;
+                            }
+                            break;
+                        }
+                        idx -= w;
+                    }
+                    start += 4;
+                    idx = start + 3;
+                }
+                vf = v;
+                start = img.data.length;
+                idx = start - 1;
+                l = 0;
+                for (let y = img.height; y >= 0; --y) {
+                    for (let x = img.width; x >= 0; --x) {
+                        if (img.data[idx] > a && (y < vf.y || x > vf.x)) {
+                            if (x !== v.x) {
+                                if (l > 0) {
+                                    polygon.pushVertex(v.x, y + 1);
+                                    l = 0;
+                                }
+                                v = polygon.pushVertex(x, y);
+                            }
+                            else {
+                                ++l;
+                            }
+                            break;
+                        }
+                        idx -= 4;
+                    }
+                    start -= w;
+                    idx = start - 1;
+                }
+                vf = v;
+                let vt = polygon.vertexs[0];
+                start = w;
+                idx = start - 1;
+                for (let x = img.width; x >= 0; --x) {
+                    for (let y = 0; y < img.height; ++y) {
+                        if (img.data[idx] > a && (y < vt.y || x > vt.x) && (y < vf.y || x < vf.x)) {
+                            if (y !== v.y) {
+                                if (l > 0) {
+                                    polygon.pushVertex(x + 1, v.y);
+                                    l = 0;
+                                }
+                                v = polygon.pushVertex(x, y);
+                            }
+                            else {
+                                ++l;
+                            }
+                            break;
+                        }
+                        idx += w;
+                    }
+                    start -= 4;
+                    idx = start - 1;
+                }
+            }
+            return polygon;
+        }
+        get Width() {
+            return this.mRect.w;
+        }
+        get Height() {
+            return this.mRect.h;
+        }
+    }
+    ftk.EmptyTexture = new _Texture(new Image(), 0, 0, 0, 0);
+    function createTexture(image, x, y, w, h) {
+        if (!image) {
+            return ftk.EmptyTexture;
+        }
+        else if (image instanceof ftk.ImageResource) {
+            return new _Texture(image.Image, x, y, w, h);
+        }
+        else if (image instanceof ftk.VideoResource) {
+            return new _Texture(image.Video, x, y, w, h);
+        }
+        return new _Texture(image, x, y, w, h);
+    }
+    ftk.createTexture = createTexture;
+})(ftk || (ftk = {}));
+var ftk;
+(function (ftk) {
     class VideoSprite extends ftk.RectangleSprite {
         constructor(resource, w, h, id) {
             super(0, 0, 0, 0, id);
@@ -3238,142 +4526,44 @@ var ftk;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
-    var particles;
-    (function (particles) {
-        class FireworkSparkParticle extends ftk.Particle {
-            constructor(pa, x, y) {
-                super(pa, x, y);
-                this.hue = Math.floor(Math.random() * 360);
-                this.maxLife = this.age;
-                this.drag = 0.9;
-                this.color = this.randColor();
-            }
-            Render(rc) {
-                rc.fillStyle = this.color;
-                rc.fillRect(this.x - 1, this.y - 1, 2, 2);
-            }
-            Update(timestamp) {
-                super.Update(timestamp);
-                if (Math.random() < 0.5) {
-                    this.color = this.randColor();
-                }
-            }
-            randColor() {
-                let components = [
-                    (Math.random() * 128 + 128) & 0xff, (Math.random() * 128 + 128) & 0xff, (Math.random() * 128 + 128) & 0xff
-                ];
-                components[Math.floor(Math.random() * 3)] = Math.floor(Math.random() * 200 + 55) & 0xff;
-                if (Math.random() < 0.3) {
-                    components[Math.floor(Math.random() * 3)] = (Math.random() * 200 + 55) & 0xff;
-                }
-                return "rgb(" + components.join(',') + ")";
-            }
-        }
-        particles.FireworkSparkParticle = FireworkSparkParticle;
-        class FireworkFlameParticle extends ftk.Particle {
-            constructor(pa, x, y) {
-                super(pa, x, y);
-                this.age /= 2;
-            }
-            Update(timestamp) {
-                let spark = new FireworkSparkParticle(this.PA, this.x, this.y);
-                spark.vx /= 10;
-                spark.vy /= 10;
-                spark.vx += this.vx / 2;
-                spark.vy += this.vy / 2;
-                this.PA.AddParticle(spark);
-                super.Update(timestamp);
-            }
-            Render(_rc) {
-            }
-        }
-        particles.FireworkFlameParticle = FireworkFlameParticle;
-        class FireworkParticle extends ftk.Particle {
-            constructor(pa, x, y) {
-                super(pa, x, y);
-                this.maxLife = 5;
-                this.age = 0;
-            }
-            Update(timestamp) {
-                super.Update(timestamp);
-                let bits = Math.ceil(this.age * 10 / this.maxLife);
-                for (let i = 0; i < bits; ++i) {
-                    let flame = new FireworkFlameParticle(this.PA, this.x, this.y);
-                    flame.vy *= 1.5;
-                    flame.vx *= 1.5;
-                    this.PA.AddParticle(flame);
-                }
-            }
-            Render(_rc) {
-            }
-        }
-        particles.FireworkParticle = FireworkParticle;
-        class FireworkAnimation extends ftk.ParticleSprite {
-            OnUpdate() {
-                if ((this.Ticks % 40) === 0) {
-                    let fw = new FireworkParticle(this, Math.random() * window.innerWidth, Math.random() * window.innerHeight * 0.75);
-                    fw.vx *= 5;
-                    fw.vy *= 3;
-                    this.AddParticle(fw);
-                }
-                return false;
-            }
-        }
-        particles.FireworkAnimation = FireworkAnimation;
-    })(particles = ftk.particles || (ftk.particles = {}));
-})(ftk || (ftk = {}));
-var ftk;
-(function (ftk) {
     var ui;
     (function (ui) {
         class ImageButton extends ftk.ImageSprite {
-            constructor(resource, id, w, h) {
-                super(resource, w, h, id);
+            constructor(texture, id) {
+                super(texture, id);
                 this.mPressState = false;
-                this.mNormalImage = this.Resource;
+                this.mNormalTexture = this.Texture;
             }
-            get Resource() {
-                return super.Resource;
+            get Texture() {
+                return super.Texture;
             }
-            set Resource(value) {
-                super.Resource = value;
-                this.mNormalImage = value;
-            }
-            get HoverResource() {
-                return this.mHoverImage;
-            }
-            set HoverResource(value) {
-                this.mHoverImage = value;
-            }
-            get DownResource() {
-                return this.mDownImage;
-            }
-            set DownResource(value) {
-                this.mDownImage = value;
+            set Texture(value) {
+                super.Texture = value;
+                this.mNormalTexture = value;
             }
             OnDispatchMouseEvent(ev, _forced) {
                 switch (ev.InputType) {
                     case ftk.InputEventType.MouseEnter:
-                        if (this.mHoverImage && (!this.mPressState)) {
-                            super.Resource = this.mHoverImage;
+                        if (this.HoverTexture && (!this.mPressState)) {
+                            super.Texture = this.HoverTexture;
                         }
                         break;
                     case ftk.InputEventType.MouseLeave:
-                        if (this.mNormalImage) {
-                            super.Resource = this.mNormalImage;
+                        if (this.mNormalTexture) {
+                            super.Texture = this.mNormalTexture;
                         }
                         this.mPressState = false;
                         break;
                     case ftk.InputEventType.MouseDown:
-                        if (this.mDownImage && (!this.mPressState)) {
-                            super.Resource = this.mDownImage;
+                        if (this.DownTexture && (!this.mPressState)) {
+                            super.Texture = this.DownTexture;
                             this.mPressState = true;
                         }
                         break;
                     case ftk.InputEventType.MouseUp:
-                        if (this.mHoverImage && (this.mPressState)) {
+                        if (this.HoverTexture && (this.mPressState)) {
                             this.mPressState = false;
-                            super.Resource = this.mHoverImage;
+                            super.Texture = this.HoverTexture;
                         }
                         break;
                 }

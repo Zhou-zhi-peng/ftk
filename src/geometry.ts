@@ -1,5 +1,9 @@
 namespace ftk {
-    const PI_HALF = (Math.PI / 2);
+    export const PI_HALF = (Math.PI / 2);
+    export const PI_1_5X = (Math.PI + PI_HALF);
+    export const PI_2_0X = Math.PI * 2;
+    export const RAD = Math.PI / 180;
+    export const DEG = 180 / Math.PI;
 
     export class Point implements IClone<Point> {
         public x: number;
@@ -45,6 +49,10 @@ namespace ftk {
             this.y = basept.y + (x * sinValue + y * cosValue);
         }
 
+        public equal(b: Point): boolean {
+            return this.x === b.x && this.y === b.y;
+        }
+
         public static distance(a: Point, b: Point) {
             let x = Math.abs(a.x - b.x);
             let y = Math.abs(a.y - b.y);
@@ -54,6 +62,10 @@ namespace ftk {
             let p = pt.clone();
             p.rotate(angle, basept);
             return p;
+        }
+
+        public static equal(a: Point, b: Point): boolean {
+            return a.equal(b);
         }
     }
 
@@ -69,6 +81,13 @@ namespace ftk {
 
         public clone(): Size {
             return new Size(this.cx, this.cy);
+        }
+        public equal(b: Size): boolean {
+            return this.cx === b.cx && this.cy === b.cy;
+        }
+
+        public static equal(a: Size, b: Size): boolean {
+            return a.equal(b);
         }
     }
 
@@ -280,12 +299,17 @@ namespace ftk {
             this.w = endX - startX;
             this.h = endY - startY;
         }
+
+        public equal(b: Rectangle): boolean {
+            return this.x === b.x && this.y === b.y && this.w === b.w && this.h === b.h;
+        }
+
         public intersection(r1: Rectangle, r2: Rectangle): void {
             let merge = Rectangle.union(r1, r2);
-            let startX = r1.x == merge.x ? r2.x : r1.x;
-            let endX = r1.right == merge.right ? r2.right : r1.right;
-            let startY = r1.y == merge.y ? r2.y : r1.y;
-            let endY = r1.bottom == merge.bottom ? r2.bottom : r1.bottom;
+            let startX = r1.x === merge.x ? r2.x : r1.x;
+            let endX = r1.right === merge.right ? r2.right : r1.right;
+            let startY = r1.y === merge.y ? r2.y : r1.y;
+            let endY = r1.bottom === merge.bottom ? r2.bottom : r1.bottom;
             this.x = startX;
             this.y = startY;
             this.w = endX - startX;
@@ -338,11 +362,15 @@ namespace ftk {
 
         public static intersection(r1: Rectangle, r2: Rectangle): Rectangle {
             let merge = Rectangle.union(r1, r2);
-            let startX = r1.x == merge.x ? r2.x : r1.x;
-            let endX = r1.right == merge.right ? r2.right : r1.right;
-            let startY = r1.y == merge.y ? r2.y : r1.y;
-            let endY = r1.bottom == merge.bottom ? r2.bottom : r1.bottom;
+            let startX = r1.x === merge.x ? r2.x : r1.x;
+            let endX = r1.right === merge.right ? r2.right : r1.right;
+            let startY = r1.y === merge.y ? r2.y : r1.y;
+            let endY = r1.bottom === merge.bottom ? r2.bottom : r1.bottom;
             return new Rectangle(startX, startY, endX - startX, endY - startY);
+        }
+
+        public static equal(a: Rectangle, b: Rectangle): boolean {
+            return a.equal(b);
         }
     }
 
@@ -407,8 +435,12 @@ namespace ftk {
             );
         }
 
+        public equal(b: LineSegment): boolean {
+            return this.start.equal(b.start) && this.end.equal(b.end);
+        }
+
         public static isInLineEx(point: Point, lstart: Point, lend: Point): boolean {
-            return (((point.x - lstart.x) * (lstart.y - lend.y)) == ((lstart.x - lend.x) * (point.y - lstart.y))
+            return (((point.x - lstart.x) * (lstart.y - lend.y)) === ((lstart.x - lend.x) * (point.y - lstart.y))
                 && (point.x >= Math.min(lstart.x, lend.x) && point.x <= Math.max(lstart.x, lend.x))
                 && ((point.y >= Math.min(lstart.y, lend.y)) && (point.y <= Math.max(lstart.y, lend.y))));
         }
@@ -484,6 +516,10 @@ namespace ftk {
             }
             return fAngle;
         }
+
+        public static equal(a: LineSegment, b: LineSegment): boolean {
+            return a.equal(b);
+        }
     }
 
     export class Circle implements IClone<Circle>{
@@ -525,6 +561,10 @@ namespace ftk {
             return Circle.isIntersect(this, a);
         }
 
+        public equal(b: Circle): boolean {
+            return this.center.equal(b.center) && this.radius === b.radius;
+        }
+
         public get box(): Rectangle {
             let s = this.radius + this.radius;
             return new Rectangle(
@@ -537,6 +577,10 @@ namespace ftk {
         public static isIntersect(a: Circle, b: Circle): boolean {
             let d = Point.distance(a.center, b.center);
             return d < a.radius || d < b.radius;
+        }
+
+        public static equal(a: Circle, b: Circle): boolean {
+            return a.equal(b);
         }
     }
 
@@ -579,7 +623,7 @@ namespace ftk {
 
         public get box(): Rectangle {
             let vs = this.mVertexs;
-            if (vs.length == 0) {
+            if (vs.length === 0) {
                 return new Rectangle();
             }
             let left = vs[0].x;
@@ -649,6 +693,12 @@ namespace ftk {
             });
         }
 
+        public pushVertex(x: number, y: number): Point {
+            let p = new Point(x, y);
+            this.mVertexs.push(p);
+            return p;
+        }
+
         public popVertex(): Point | undefined {
             return this.mVertexs.pop();
         }
@@ -659,6 +709,20 @@ namespace ftk {
 
         public removeVertex(index: number, count: number): void {
             this.mVertexs.splice(index, count);
+        }
+
+        public equal(b: Polygon): boolean {
+            let av = this.mVertexs;
+            let bv = b.mVertexs;
+            if (av.length != bv.length) {
+                return false;
+            }
+            for (let i = 0; i < av.length; ++i) {
+                if (!av[i].equal(bv[i])) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         public static isBoundary(point: Point, p: Polygon): boolean {
@@ -690,6 +754,10 @@ namespace ftk {
             }
             return isin;
         }
+
+        public static equal(a: Polygon, b: Polygon): boolean {
+            return a.equal(b);
+        }
     }
 
     export class Vector implements IClone<Vector> {
@@ -717,7 +785,7 @@ namespace ftk {
         }
 
         public get normalized(): boolean {
-            return this.lengthQ == 1;
+            return this.lengthQ === 1;
         }
 
         public get lengthQ(): number {
@@ -779,8 +847,8 @@ namespace ftk {
             return this.x * v.x + this.y * v.y;
         }
 
-        public epointual(v: Vector): boolean {
-            return this.x == v.x && this.y == v.y;
+        public equal(v: Vector): boolean {
+            return this.x === v.x && this.y === v.y;
         }
 
         public normalize(): void {
@@ -839,8 +907,8 @@ namespace ftk {
             return a.x * b.x + a.y * b.y;
         }
 
-        public static epointual(a: Vector, b: Vector): boolean {
-            return a.x == b.x && a.y == b.y;
+        public static equal(a: Vector, b: Vector): boolean {
+            return a.x === b.x && a.y === b.y;
         }
 
         public static angleBetween(a: Vector, b: Vector): number {
@@ -854,5 +922,12 @@ namespace ftk {
         public static isColinear(a: Vector, b: Vector): boolean {
             return a.slope === b.slope;
         }
+    }
+
+    export function DToR(angle: number) {
+        return angle * RAD;
+    }
+    export function RToD(angle: number) {
+        return angle * DEG;
     }
 }

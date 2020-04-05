@@ -6,56 +6,60 @@ declare namespace ftk {
         Restart(): void;
         Stop(): void;
         Update(timestamp: number, target: Sprite): void;
+        ValidateTarget(target: Sprite): boolean;
     }
     abstract class Animation<T> implements IAnimation {
         Loop: boolean;
         Duration: number;
+        protected StartValue: T;
+        protected EndValue: T;
         constructor(start: T, end: T, duration: number, loop?: boolean, autostart?: boolean);
         readonly Playing: boolean;
         Start(): void;
         Restart(): void;
         Stop(): void;
         Update(timestamp: number, target: Sprite): void;
+        ValidateTarget(target: Sprite): boolean;
         protected abstract CalcDistance(start: T, end: T): T;
         protected abstract CalcProgress(start: T, distanceTotal: T, timeProgress: number, timeTotal: number): T;
-        protected abstract SetTarget(target: Sprite, value: T): void;
+        protected abstract UpdateTarget(target: Sprite, value: T): void;
     }
     abstract class NumberValueAnimation extends Animation<number> {
         protected CalcDistance(start: number, end: number): number;
         protected CalcProgress(start: number, distanceTotal: number, timeProgress: number, timeTotal: number): number;
     }
     class AngleAnimation extends NumberValueAnimation {
-        protected SetTarget(target: Sprite, value: number): void;
+        protected UpdateTarget(target: Sprite, value: number): void;
     }
     class OpacityAnimation extends NumberValueAnimation {
-        protected SetTarget(target: Sprite, value: number): void;
+        protected UpdateTarget(target: Sprite, value: number): void;
     }
     class PosXAnimation extends NumberValueAnimation {
-        protected SetTarget(target: Sprite, value: number): void;
+        protected UpdateTarget(target: Sprite, value: number): void;
     }
     class PosYAnimation extends NumberValueAnimation {
-        protected SetTarget(target: Sprite, value: number): void;
+        protected UpdateTarget(target: Sprite, value: number): void;
     }
     class WidthAnimation extends NumberValueAnimation {
-        protected SetTarget(target: Sprite, value: number): void;
+        protected UpdateTarget(target: Sprite, value: number): void;
     }
     class HeightAnimation extends NumberValueAnimation {
-        protected SetTarget(target: Sprite, value: number): void;
+        protected UpdateTarget(target: Sprite, value: number): void;
     }
     class PositionAnimation extends Animation<Point> {
         protected CalcDistance(start: Point, end: Point): Point;
         protected CalcProgress(start: Point, distanceTotal: Point, timeProgress: number, timeTotal: number): Point;
-        protected SetTarget(target: Sprite, value: Point): void;
+        protected UpdateTarget(target: Sprite, value: Point): void;
     }
     class SizeAnimation extends Animation<Size> {
         protected CalcDistance(start: Size, end: Size): Size;
         protected CalcProgress(start: Size, distanceTotal: Size, timeProgress: number, timeTotal: number): Size;
-        protected SetTarget(target: Sprite, value: Size): void;
+        protected UpdateTarget(target: Sprite, value: Size): void;
     }
     class BoxAnimation extends Animation<Rectangle> {
         protected CalcDistance(start: Rectangle, end: Rectangle): Rectangle;
         protected CalcProgress(start: Rectangle, distanceTotal: Rectangle, timeProgress: number, timeTotal: number): Rectangle;
-        protected SetTarget(target: Sprite, value: Rectangle): void;
+        protected UpdateTarget(target: Sprite, value: Rectangle): void;
     }
     class KeyframeAnimation implements IAnimation {
         Loop: boolean;
@@ -68,6 +72,18 @@ declare namespace ftk {
         RemoveFrame(animation: IAnimation): void;
         ClearFrames(): void;
         Update(timestamp: number, target: Sprite): void;
+        ValidateTarget(target: Sprite): boolean;
+    }
+
+    class SequenceAnimation extends NumberValueAnimation {
+        Frames(): IReadonlyArray<ITexture>;
+        Interval: number;
+        constructor(interval: number, textures?: IReadonlyArray<ITexture>, loop?: boolean, autostart?: boolean);
+        public AddFrame(texture: ITexture): void;
+        public RemoveAt(index: number): void;
+        public ClearFrames(): void;
+        public ValidateTarget(target: Sprite): boolean;
+        protected UpdateTarget(target: ImageSprite, value: number): void;
     }
 }
 declare namespace ftk {
@@ -117,6 +133,7 @@ declare namespace ftk {
         removeListener(evt: string, listener: Function): void;
         resetListeners(): void;
         emit(evt: string, ...args: any[]): void;
+        asyncEmit(evt: string, ...args: any[]): void;
     }
     class EventHandlerChain {
         constructor();
@@ -134,7 +151,8 @@ declare namespace ftk {
         removeListener(evt: string, listener?: Function): void;
         resetListeners(): void;
         emit(evt: string, ...args: any[]): void;
-        protected emitEx(thisArg: any, evt: string, ...args: any[]): void;
+        asyncEmit(evt: string, ...args: any[]): void;
+        protected emitEx(isasync: boolean, thisArg: any, evt: string, ...args: any[]): void;
     }
 }
 declare namespace ftk {
@@ -217,6 +235,52 @@ declare namespace ftk.utility {
     function UTF8BufferEncodeLength(input: string): number;
     function UTF8BufferEncode(input: string): ArrayBuffer;
     function UTF8BufferDecode(buffer: ArrayBuffer, offset?: number, length?: number): string;
+    export namespace Path {
+        // 路径分割符
+        export const sep: string;
+
+        // 正常化路径 （合并路径中的相对访问符 .. 和 .）
+        export function normalize(path: string): string;
+
+        // 路径拼接
+        export function join(...args: string[]): string;
+
+        // 提取URL中的路径部分
+        export function urlpath(url: string): string;
+
+        // 是否为一个正常的URL
+        export function isurl(path: string): boolean;
+
+        // 将相对路径转为绝对路径，pwd 为当前目录，默认为 '/'
+        export function resolve(path: string, pwd?: string): string;
+
+        // 获取从path位置到 to 的位置的相对路径，pwd 为当前目录，默认为 '/'
+        export function relative(path: string, to: string, pwd?: string): string;
+
+        //获取扩展名
+        export function extname(path: string): string;
+
+        //获取基础名
+        export function basename(path: string): string;
+
+        //获取路径中最后一个部分的名称( abc/def/efg 返回efg )
+        export function lastpart(path: string): string;
+
+        //获取目录名称
+        export function dirname(path: string): string;
+
+        //改变扩展名
+        export function chextension(path: string, name: string): string;
+
+        //改变基础名
+        export function chbasename(path: string, name: string): string;
+
+        //改变最后一个部分的名称
+        export function chlastpart(path: string, name: string): string;
+
+        //是否为绝对路径
+        export function isabsolute(path: string): boolean;
+    }
 }
 declare namespace ftk {
     class Stage implements IObjectNode {
@@ -247,7 +311,7 @@ declare namespace ftk {
         X: number;
         Y: number;
         Box: Rectangle;
-        size: Size;
+        Size: Size;
         Width: number;
         Height: number;
         protected OnResized(): void;
@@ -260,9 +324,10 @@ declare namespace ftk {
         AddAnimation(animation: IAnimation): void;
         RemoveAnimation(animation: IAnimation): boolean;
         ClearAnimations(): void;
-        setBasePointToCenter(): void;
+        SetBasePointToCenter(): void;
         PickTest(point: Point): boolean;
         Rander(rc: CanvasRenderingContext2D | null): void;
+        toTexture(): ITexture;
         protected abstract getRectangle(): Rectangle;
         protected abstract setRectangle(value: Rectangle): void;
         protected abstract OnRander(rc: CanvasRenderingContext2D): void;
@@ -351,37 +416,44 @@ declare namespace ftk {
     class ParticleSprite extends RectangleSprite {
         constructor();
         readonly Particles: IReadonlyArray<Particle>;
-        readonly Ticks: number;
+        readonly Emitters: IReadonlyArray<IParticleEmitter>;
         readonly LastUpdateTime: number;
         readonly UpdateTime: number;
         AddParticle(particle: Particle): void;
+        ClearParticle(): void;
+        AddEmitter(emitter: IParticleEmitter): void;
+        RemoveEmitter(emitter: IParticleEmitter): void;
+        ClearEmitter(): void;
         DispatchTouchEvent(_ev: GTouchEvent, _forced: boolean): void;
         DispatchMouseEvent(_ev: GMouseEvent, _forced: boolean): void;
         DispatchKeyboardEvent(_ev: GKeyboardEvent, _forced: boolean): void;
-        OnRander(rc: CanvasRenderingContext2D): void;
-        protected OnUpdate(): boolean;
-        Update(timestamp: number): void;
+        protected OnUpdate(timestamp: number): void;
+        protected OnRander(rc: CanvasRenderingContext2D): void;
+        protected OnEngineVisibilityStateChanged(visible: boolean, timestamp: number): void;
     }
     abstract class Particle {
-        public x: number; // 位置
-        public y: number;
-        public w: number; // 大小
-        public h: number;
-        public vx: number; // 速度
-        public vy: number;
-        public ax: number; // 加速度
-        public ay: number;
-        public maxLife: number; // 预设寿命
-        public age: number; // 当前寿命
-        public exp: number; // 膨胀
-        public gravity: number; // 重力
-        public drag: number; // 阻力(0无穷大，1无阻力)
-        public active: boolean;
-        public readonly PA: ParticleSprite;
+        x: number; // 位置
+        y: number;
+        w: number; // 大小
+        h: number;
+        vx: number; // 速度
+        vy: number;
+        maxLife: number; // 预设寿命
+        age: number; // 当前寿命
+        gravity: number; // 重力
+        drag: number; // 阻力(0无穷大，1无阻力)
+        elastic: number; // 弹性
+        active: boolean;
+        readonly PA: ParticleSprite;
 
         constructor(pa: ParticleSprite, x: number, y: number);
-        Update(timestamp: number): void;
+        Update(incremental: number): void;
         abstract Render(rc: CanvasRenderingContext2D): void;
+    }
+
+    interface IParticleEmitter {
+        Position: Point;
+        Update(timestamp: number, ps: ParticleSprite): void;
     }
 }
 
@@ -419,13 +491,11 @@ declare namespace ftk {
         "shutdown": EngineEvent;
         "update": EngineEvent;
         "rander": EngineEvent;
-        "pause": EngineEvent;
-        "resume": EngineEvent;
         "fault": EngineEvent;
         "offline": EngineEvent;
         "online": EngineEvent;
-        "active": EngineEvent;
-        "inactive": EngineEvent;
+        "visible": EngineEvent;
+        "hidden": EngineEvent;
     }
 
     abstract class AbstractEngine extends EventEmitter {
@@ -438,7 +508,8 @@ declare namespace ftk {
         readonly LastRanderDuration: number;
         DebugInfoVisible: boolean;
         Run(): void;
-        Notify(source: any, name: string, broadcast: boolean, message: any): any;
+        Notify(source: any, name: string, broadcast: boolean, message: any): void;
+        OnNotify(name: string, listener: (ev: NoticeEvent) => void): void;
         protected abstract OnRun(): void;
         protected setFrameRate(value: number): void;
 
@@ -467,6 +538,12 @@ declare namespace ftk {
     function LibraryShutdown(): void;
 }
 declare namespace ftk {
+    const PI_HALF: number;
+    const PI_1_5X: number;
+    const PI_2_0X: number;
+    const RAD: number;
+    const DEG: number;
+
     class Point implements IClone<Point> {
         x: number;
         y: number;
@@ -476,17 +553,22 @@ declare namespace ftk {
         offset(x: number, y: number): void;
         setV(v: Point): void;
         setV(x: number, y: number): void;
-        static distance(a: Point, b: Point): number;
-        distance(a: Point): number;
-        static rotate(pt: Point, angle: number, basept: Point): Point;
         rotate(angle: number, basept: Point): void;
+        distance(a: Point): number;
+        equal(b: Point): boolean;
+        static distance(a: Point, b: Point): number;
+        static rotate(pt: Point, angle: number, basept: Point): Point;
+        static equal(a: Point, b: Point): boolean;
     }
+
     class Size implements IClone<Size> {
         cx: number;
         cy: number;
         constructor();
         constructor(cx: number, cy: number);
         clone(): Size;
+        equal(b: Size): boolean;
+        static equal(a: Size, b: Size): boolean;
     }
     class Rectangle implements IClone<Rectangle> {
         x: number;
@@ -508,39 +590,46 @@ declare namespace ftk {
         isInside(point: Point): boolean;
         isBoundary(point: Point): boolean;
         isInsideOrBoundary(point: Point): boolean;
-        static isIntersect(r0: Rectangle, r1: Rectangle): boolean;
         isIntersect(r: Rectangle): boolean;
         offset(x: number, y: number): void;
         expand(value: number): void;
-        static normalize(a: Rectangle): Rectangle;
         normalize(): void;
         HitTest(point: Point, tolerance?: number): string;
-        static union(a: Rectangle, b: Rectangle): Rectangle;
         union(a: Rectangle): void;
-        static intersection(r1: Rectangle, r2: Rectangle): Rectangle;
         intersection(r1: Rectangle, r2: Rectangle): void;
+        equal(b: Rectangle): boolean;
+        static isIntersect(r0: Rectangle, r1: Rectangle): boolean;
+        static normalize(a: Rectangle): Rectangle;
+        static intersection(r1: Rectangle, r2: Rectangle): Rectangle;
+        static union(a: Rectangle, b: Rectangle): Rectangle;
+        static equal(a: Rectangle, b: Rectangle): boolean;
     }
     class LineSegment implements IClone<LineSegment> {
         start: Point;
         end: Point;
+        readonly angle: number;
+        readonly box: Rectangle;
+        readonly center: Point;
+
         constructor();
         constructor(s: Point, e: Point);
         constructor(sx: number, sy: number, ex: number, ey: number);
         clone(): LineSegment;
+        isInLine(point: Point): boolean;
+        isIntersect(l: LineSegment): boolean;
+        angleBetween(a: LineSegment): number;
+        equal(b: LineSegment): boolean;
         static isInLineEx(point: Point, lstart: Point, lend: Point): boolean;
         static isInLine(point: Point, line: LineSegment): boolean;
-        isInLine(point: Point): boolean;
         static isIntersect(l0: LineSegment, l1: LineSegment): boolean;
-        isIntersect(l: LineSegment): boolean;
-        readonly angle: number;
         static angleBetween(a: LineSegment, b: LineSegment): number;
-        angleBetween(a: LineSegment): number;
-        readonly box: Rectangle;
-        readonly center: Point;
+        static equal(a: LineSegment, b: LineSegment): boolean;
     }
     class Circle implements IClone<Circle> {
         center: Point;
         radius: number;
+        readonly box: Rectangle;
+
         constructor();
         constructor(c: Point, radius: number);
         constructor(x: number, y: number, radius: number);
@@ -548,65 +637,70 @@ declare namespace ftk {
         isInside(point: Point): boolean;
         isBoundary(point: Point): boolean;
         isInsideOrBoundary(point: Point): boolean;
-        static isIntersect(a: Circle, b: Circle): boolean;
+        equal(b: Circle): boolean
         isIntersect(a: Circle): boolean;
-        readonly box: Rectangle;
+        static isIntersect(a: Circle, b: Circle): boolean;
+        static isIntersect(a: Circle, b: Circle): boolean;
     }
     class Polygon implements IClone<Polygon> {
         closed: boolean;
+        box: Rectangle;
+        readonly gravity: Point;
+        readonly center: Point;
+        readonly vertexs: IReadonlyArray<Point>;
         constructor(vertexs?: IReadonlyArray<Point>);
         clone(): Polygon;
-        readonly vertexs: IReadonlyArray<Point>;
-        static isBoundary(point: Point, p: Polygon): boolean;
         isBoundary(point: Point): boolean;
-        static isInPolygon(point: Point, p: Polygon): boolean;
         isInPolygon(point: Point): boolean;
         appendVertex(...points: Point[]): void;
         popVertex(): Point | undefined;
         insertVertex(index: number, ...points: Point[]): void;
         removeVertex(index: number, count: number): void;
-        readonly gravity: Point;
-        readonly box: Rectangle;
-        readonly center: Point;
+        equal(b: Polygon): boolean;
+        static isBoundary(point: Point, p: Polygon): boolean;
+        static isInPolygon(point: Point, p: Polygon): boolean;
+        static equal(a: Polygon, b: Polygon): boolean;
     }
     class Vector implements IClone<Vector> {
         x: number;
         y: number;
+        length: number;
+        readonly isZero: boolean;
+        readonly slope: number;
+        readonly angle: number;
+        readonly normalized: boolean;
+        readonly lengthQ: number;
+
         constructor();
         constructor(x: number, y: number);
         clone(): Vector;
         setV(v: Vector): void;
         setV(x: number, y: number): void;
-        static add(a: Vector, b: Vector): Vector;
         add(v: Vector): void;
-        static sub(a: Vector, b: Vector): Vector;
         sub(v: Vector): void;
-        static mul(v: Vector, scalar: number): Vector;
         mul(v: number): void;
-        static div(v: Vector, scalar: number): Vector;
         div(v: number): void;
-        static cross(a: Vector, b: Vector): number;
         cross(v: Vector): number;
-        static dot(a: Vector, b: Vector): number;
         dot(v: Vector): number;
-        static inner(a: Vector, b: Vector): number;
         inner(v: Vector): number;
-        epointual(v: Vector): boolean;
-        static epointual(a: Vector, b: Vector): boolean;
+        equal(v: Vector): boolean;
         normalize(): void;
         zero(): void;
         reverse(): void;
         rotate(angle: number): void;
+        isColinear(): boolean;
+
+        static add(a: Vector, b: Vector): Vector;
+        static sub(a: Vector, b: Vector): Vector;
+        static mul(v: Vector, scalar: number): Vector;
+        static div(v: Vector, scalar: number): Vector;
+        static cross(a: Vector, b: Vector): number;
+        static dot(a: Vector, b: Vector): number;
+        static inner(a: Vector, b: Vector): number;
+        static equal(a: Vector, b: Vector): boolean;
         static angleBetween(a: Vector, b: Vector): number;
         static perpendicular(a: Vector, b: Vector): boolean;
         static isColinear(a: Vector, b: Vector): boolean;
-        isColinear(): boolean;
-        readonly isZero: boolean;
-        readonly slope: number;
-        readonly angle: number;
-        length: number;
-        readonly normalized: boolean;
-        readonly lengthQ: number;
     }
 }
 declare namespace ftk {
@@ -679,14 +773,16 @@ declare namespace ftk {
         Edit(): IResourceDBEditor;
     }
     interface IResourceDBEditor {
-        Add(resource: IResource): IResourceDBEditor;
+        Add(resourceUrl: string, name?: string): IResourceDBEditor;
+        Add(resource: IResource, name?: string): IResourceDBEditor;
         Remove(name: string): boolean;
         Clear(): void;
         LoadAll(progressHandler?: (progress: number) => void): Promise<void>;
         forEach(callback: (resource: IResource) => boolean): void;
     }
     class ResourceDBEditor implements IResourceDBEditor, IResourceDB {
-        Add(resource: IResource): ResourceDBEditor;
+        Add(resourceUrl: string, name?: string): IResourceDBEditor;
+        Add(resource: IResource, name?: string): IResourceDBEditor;
         Clear(): void;
         Remove(name: string): boolean;
         Get(name: string): IResource | undefined;
@@ -698,24 +794,42 @@ declare namespace ftk {
         forEach(callback: (resource: IResource) => boolean): void;
         Edit(): IResourceDBEditor;
     }
+
+    function registerResourceType(extName: string[] | string, type: ResourceType): void;
 }
+
+declare namespace ftk {
+    export interface ITexture {
+        readonly Width: number;
+        readonly Height: number;
+        Draw(rc: CanvasRenderingContext2D, dx: number, dy: number, dw: number, dh: number): void;
+        Clip(x: number, y: number, w: number, h: number): ITexture;
+        BuildOutline(threshold?: number): Polygon;
+    }
+
+    export type TextureImageSource = HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | HTMLVideoElement | ImageBitmap;
+    export const EmptyTexture: ITexture;
+    export function createTexture(image: TextureImageSource | ImageResource | VideoResource | undefined, x?: number, y?: number, w?: number, h?: number): ITexture;
+}
+
 declare namespace ftk {
     class ImageSprite extends RectangleSprite {
-        constructor(resource?: ImageResource, w?: number, h?: number, id?: string);
-        Resource: ImageResource;
+        public constructor(texture?: ITexture, id?: string);
+        Texture: ITexture;
         protected OnRander(rc: CanvasRenderingContext2D): void;
     }
 }
 declare namespace ftk {
     class Layer implements IObjectNode {
-        constructor();
+        constructor(id?: string);
         readonly Id: string;
         Visible: boolean;
         UpdateForHide: boolean;
         EventTransparent: boolean;
-        AddNode(node: IObjectNode): Layer;
-        RemoveNode(id: string): Layer;
-        GetNode(id: string): IObjectNode | undefined;
+        Add(node: IObjectNode): Layer;
+        Remove(id: string): Layer;
+        RemoveAll(): Layer;
+        Get(id: string): IObjectNode | undefined;
         forEach(callback: (node: IObjectNode) => void): void;
         Sort(compareCallback: (a: IObjectNode, b: IObjectNode) => number): void;
         Rander(rc: CanvasRenderingContext2D): void;
@@ -726,15 +840,23 @@ declare namespace ftk {
         Update(timestamp: number): void;
     }
     class ColoredLayer extends Layer {
-        constructor();
+        constructor(color?: Color | string | number, id?: string);
         BackgroundColor: Color;
         Rander(rc: CanvasRenderingContext2D): void;
     }
-    type BackgroundImageRepeatStyle = "repeat" | "center" | "stretch" | "fit-stretch" | "none";
+
+    enum BackgroundImageRepeatStyle {
+        none,
+        repeat,
+        center,
+        stretch,
+        fitStretch,
+    }
+
     class BackgroundImageLayer extends Layer {
-        constructor();
-        BackgroundImage: ImageResource;
+        BackgroundTexture: ITexture;
         RepeatStyle: BackgroundImageRepeatStyle;
+        constructor(texture?: ITexture, id?: string);
         Rander(rc: CanvasRenderingContext2D): void;
     }
 }
@@ -819,37 +941,14 @@ declare namespace ftk {
         Pause(): void;
     }
 }
-declare namespace ftk.particles {
-    class FireworkSparkParticle extends Particle {
-        hue: number;
-        lifeMax: number;
-        color: string;
-        constructor(pa: ParticleSprite, x: number, y: number);
-        Render(rc: CanvasRenderingContext2D): void;
-        Update(): void;
-        protected randColor(): string;
-    }
-    class FireworkFlameParticle extends Particle {
-        constructor(pa: ParticleSprite, x: number, y: number);
-        Update(): void;
-        Render(_rc: CanvasRenderingContext2D): void;
-    }
-    class FireworkParticle extends Particle {
-        lifeMax: number;
-        constructor(pa: ParticleSprite, x: number, y: number);
-        Update(): void;
-        Render(_rc: CanvasRenderingContext2D): void;
-    }
-    class FireworkAnimation extends ParticleSprite {
-        protected OnUpdate(): boolean;
-    }
-}
+
 declare namespace ftk.ui {
     class ImageButton extends ImageSprite {
-        constructor(resource?: ImageResource, id?: string, w?: number, h?: number);
-        Resource: ImageResource;
-        HoverResource: ImageResource | undefined;
-        DownResource: ImageResource | undefined;
+        Texture: ITexture;
+        HoverTexture: ITexture | undefined;
+        DownTexture: ITexture | undefined;
+
+        constructor(texture?: ITexture, id?: string);
         protected OnDispatchMouseEvent(ev: GMouseEvent, _forced: boolean): void;
     }
 }
@@ -859,3 +958,41 @@ declare namespace ftk.ui {
     }
 }
 
+declare namespace ftk {
+    class GraphicsSprite extends RectangleSprite {
+        clear(): void;
+        beginStroke(width: number, color: Color): void;
+        beginFill(color: Color): void;
+        beginLinearGradientFill(color: IReadonlyArray<Color>, startX: number, startY: number, endX: number, endY: number): void;
+        beginRadialGradientFill(color: IReadonlyArray<Color>, startX: number, startY: number, startR: number, endX: number, endY: number, endR: number): void;
+        beginClipPath(): void;
+        endFill(): void;
+        endStroke(close?: boolean): void;
+        endClipPath(): void;
+
+        cubicCurveTo(c1x: number, c1y: number, c2x: number, c2y: number, x: number, y: number): void;
+        curveTo(cx: number, cy: number, x: number, y: number): void;
+        arc(centerX: number, centerY: number, radius: number, startAngle: number, endAngle: number, anticlockwise: boolean): void;
+        arcTo(startX: number, startY: number, endX: number, endY: number, radius: number): void;
+        circle(centerX: number, centerY: number, radius: number): void;
+        ellipse(x: number, y: number, w: number, h: number, rotation: number, startAngle?: number, endAngle?: number): void;
+        rect(x: number, y: number, w: number, h: number): void;
+        roundRect(x: number, y: number, w: number, h: number, radius: number): void;
+        lineTo(x: number, y: number): void;
+        moveTo(x: number, y: number): void;
+        polygon(vertexs: IReadonlyArray<Point>): void;
+        epolygon(x: number, y: number, radius: number, side: number): void;
+        star(x: number, y: number, radius1: number, radius2: number, count: number, rotation?: number): void;
+
+        fillBackground(color: Color): void;
+        drawTexture(t: ITexture, dx: number, dy: number, dw: number, dh: number): void;
+
+        beginText(fontName: string, fontSize: number): void;
+        text(s: string, dx: number, dy: number, dw: number, color?: Color): void;
+        endText(): void;
+
+        clearRect(x: number, y: number, w: number, h: number): void;
+
+        protected OnRander(rc: CanvasRenderingContext2D): void;
+    }
+}

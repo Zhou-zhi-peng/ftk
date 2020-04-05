@@ -18,16 +18,31 @@ namespace ftk {
         private mFrameRate: number;
         private mEngineUpdateEventArg = new EngineEvent(this, 0);
         private mEngineRanderEventArg = new EngineEvent(this, null);
+        private mNEventEmitter = new EventEmitter();
         private mLastRanderDuration: number;
+        private mVisibilityState: boolean;
+        private mOnlineState: boolean;
         public DebugInfoVisible: boolean;
         public constructor(canvas: HTMLCanvasElement) {
             super();
             canvas.addEventListener("mousedown", (ev) => { this.OnMouseDown(ev); });
             canvas.addEventListener("mouseup", (ev) => { this.OnMouseUp(ev); });
             canvas.addEventListener("mousemove", (ev) => { this.OnMouseMove(ev); });
+            document.addEventListener("visibilitychange", () => {
+                this.OnVisibilityState(document.visibilityState == "visible");
+            });
+
+            window.addEventListener('offline', () => {
+                this.OnOnlineState(false);
+            });
+
+            window.addEventListener('online', () => {
+                this.OnOnlineState(true);
+            });
+
             this.mCanvas = canvas;
             this.mRC = canvas.getContext("2d", { alpha: false }) as CanvasRenderingContext2D;
-            this.mOffscreenCanvas = AbstractEngine.createOffscreenCanvas(this.mCanvas.width, this.mCanvas.height);
+            this.mOffscreenCanvas = utility.api.createOffscreenCanvas(this.mCanvas.width, this.mCanvas.height);
             this.mOffscreenRC = this.mOffscreenCanvas.getContext("2d", { alpha: false }) as CanvasRenderingContext2D;
             this.mRootNode = new Stage(canvas.width, canvas.height);
             this.mEventPrevTarget = null;
@@ -37,6 +52,8 @@ namespace ftk {
             this.mFrameRate = 60;
             this.mLastRanderDuration = 0;
             this.DebugInfoVisible = false;
+            this.mVisibilityState = !document.hidden;
+            this.mOnlineState = window.navigator.onLine;
         }
 
         public get FrameRate(): number { return this.mFrameRate; }
@@ -51,25 +68,64 @@ namespace ftk {
             return this.mLastRanderDuration;
         }
 
+        public get VisibilityState(): boolean {
+            return this.mVisibilityState;
+        }
+
+        public get OnlineState(): boolean {
+            return this.mOnlineState;
+        }
+
         public Run(): void {
             this.mRC.clearRect(0, 0, this.ViewportWidth, this.ViewportHeight);
             this.StartLoop();
             this.OnRun();
         }
 
-        public Notify(source: any, name: string, broadcast: boolean, message: any): any {
+        public Pause(): void {
+
+        }
+
+        public Notify(source: any, name: string, broadcast: boolean, message: any): void {
             let ev = new NoticeEvent(source, name, broadcast, message);
             let root = this.Root;
             if (broadcast) {
                 root.DispatchNoticeEvent(ev, false);
             }
-            this.emit(name, ev);
-            return undefined;
+            this.mNEventEmitter.asyncEmit(name, ev);
+        }
+
+        public OnNotify(name: string, listener: (ev: NoticeEvent) => void): void {
+            this.mNEventEmitter.addListener(name, listener);
+        }
+
+
+        protected OnVisibilityState(visible: boolean) {
+            this.mVisibilityState = visible;
+            let ev = new NoticeEvent(this, 'Engine.VisibilityStateChanged', true, {
+                visible,
+                timestamp: performance.now()
+            });
+            this.Root.DispatchNoticeEvent(ev, true);
+            this.emit(visible ? 'visible' : 'hidden', visible);
+            console.log('Engine.VisibilityStateChanged', visible);
+
+        }
+
+        protected OnOnlineState(online: boolean) {
+            this.mOnlineState = online;
+            let ev = new NoticeEvent(this, 'Engine.OnlineStateChanged', true, {
+                online,
+                timestamp: performance.now()
+            });
+            this.Root.DispatchNoticeEvent(ev, true);
+            this.emit(online ? 'online' : 'offline', online);
         }
 
         protected setFrameRate(value: number) { this.mFrameRate = value; }
         protected abstract OnRun(): void;
         protected abstract DrawDebugInfo(rc: CanvasRenderingContext2D): void;
+
         private StartLoop(): void {
             let lastUpdateTime: number = 0;
             let looper = (timestamp: number) => {
@@ -84,11 +140,13 @@ namespace ftk {
         }
 
         private MainLoop(timestamp: number): void {
-            let root = this.Root;
-            root.Update(timestamp);
-            this.mEngineUpdateEventArg.Args = timestamp;
-            this.emit("update", this.mEngineUpdateEventArg);
-            this.Rander();
+            if (this.VisibilityState) {
+                let root = this.Root;
+                root.Update(timestamp);
+                this.mEngineUpdateEventArg.Args = timestamp;
+                this.emit("update", this.mEngineUpdateEventArg);
+                this.Rander();
+            }
         }
 
         private Rander(): void {
@@ -183,19 +241,6 @@ namespace ftk {
 
         private OnMouseMove(ev: MouseEvent): void {
             this.OnMouseEvent(InputEventType.MouseMove, ev);
-        }
-
-        private static createOffscreenCanvas(width: number, height: number): HTMLCanvasElement {
-            let globalThis = window as any;
-            if (globalThis["OffscreenCanvas"]) {
-                let OffscreenCanvas = globalThis["OffscreenCanvas"] as any;
-                return new OffscreenCanvas(width, height) as HTMLCanvasElement;
-            } else {
-                let OffscreenCanvas = document.createElement('canvas');
-                OffscreenCanvas.width = width;
-                OffscreenCanvas.height = height;
-                return OffscreenCanvas;
-            }
         }
     }
 
@@ -323,11 +368,11 @@ namespace ftk {
             this.addListener("ready", () => {
                 if (this.mBackgroundLayer) {
                     if (this.mLogo) {
-                        this.mBackgroundLayer.RemoveNode(this.mLogo.Id);
+                        this.mBackgroundLayer.Remove(this.mLogo.Id);
                         this.mLogo = undefined;
                     }
                     if (this.mLoadingProgressBar) {
-                        this.mBackgroundLayer.RemoveNode(this.mLoadingProgressBar.Id);
+                        this.mBackgroundLayer.Remove(this.mLoadingProgressBar.Id);
                         this.mLoadingProgressBar = undefined;
                     }
                     this.Root.RemoveLayer(this.mBackgroundLayer.Id);
@@ -402,7 +447,7 @@ namespace ftk {
             let x = (this.ViewportWidth - size) / 2;
             let y = (this.ViewportHeight - size) / 2;
             this.mLogo = new EngineLogoSprite(x, y, size, size);
-            this.AddBackgroundLayer().AddNode(this.mLogo);
+            this.AddBackgroundLayer().Add(this.mLogo);
         }
 
         private AddLoadingProgressBar(): void {
@@ -411,7 +456,7 @@ namespace ftk {
             let y = (this.ViewportHeight - size) / 2;
             this.mLoadingProgressBar = new ui.CircularProgressBar(x, y, size, size);
             this.mLoadingProgressBar.Visible = false;
-            this.AddBackgroundLayer().AddNode(this.mLoadingProgressBar);
+            this.AddBackgroundLayer().Add(this.mLoadingProgressBar);
         }
     }
 

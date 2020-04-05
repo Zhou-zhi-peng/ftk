@@ -4,7 +4,9 @@ namespace ftk {
         Video,
         Audio,
         Text,
+        Font,
         Blob,
+        Animation,
         Raw
     }
 
@@ -207,6 +209,33 @@ namespace ftk {
         }
     }
 
+    export abstract class AnimationResource extends Resource {
+        private mAnimationData: any;
+        constructor(url: string, name?: string) {
+            super(url, name);
+        }
+        public get Type(): ResourceType { return ResourceType.Animation; }
+
+        public abstract make(): IAnimation;
+        protected abstract OnLoadAnimation(animationData: any, resolve: () => void, reject: (reason: any) => void): void;
+        protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
+            let xhr = new XMLHttpRequest();
+            xhr.onload = () => {
+                try {
+                    this.mAnimationData = JSON.parse(xhr.responseText);
+                    this.OnLoadAnimation(this.mAnimationData, resolve, reject);
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            xhr.onerror = (ev) => { reject(ev); };
+            xhr.onabort = (ev) => { reject(ev); };
+
+            xhr.responseType = "text";
+            xhr.open("GET", this.Url, true);
+        }
+    }
+
     export interface IResourceDB {
         Get(name: string): IResource | undefined;
         GetImage(name: string): ImageResource | undefined;
@@ -217,19 +246,84 @@ namespace ftk {
     }
 
     export interface IResourceDBEditor {
-        Add(resource: IResource): IResourceDBEditor;
+        Add(resourceUrl: string, name?: string): IResourceDBEditor;
+        Add(resource: IResource, name?: string): IResourceDBEditor;
         Remove(name: string): boolean;
         Clear(): void;
         LoadAll(progressHandler?: (progress: number) => void): Promise<void>;
         forEach(callback: (resource: IResource) => boolean): void;
     }
 
+    type ResourceFactoryFn = (url: string, name?: string) => IResource;
+    let _extNameMap: Map<string, ResourceFactoryFn> = new Map<string, ResourceFactoryFn>();
+    function _registerResourceType(extName: string, type: ResourceType): void {
+        let ext = extName.toLowerCase();
+        let factoryFn: ResourceFactoryFn;
+        switch (type) {
+            case ResourceType.Image:
+                factoryFn = (url: string, name?: string) => new ImageResource(url, name);
+                break;
+            case ResourceType.Video:
+                factoryFn = (url: string, name?: string) => new VideoResource(url, name);
+                break;
+            case ResourceType.Audio:
+                factoryFn = (url: string, name?: string) => new AudioResource(url, name);
+                break;
+            case ResourceType.Text:
+                factoryFn = (url: string, name?: string) => new TextResource(url, name);
+                break;
+            case ResourceType.Blob:
+                factoryFn = (url: string, name?: string) => new BlobResource(url, name);
+                break;
+            case ResourceType.Raw:
+                factoryFn = (url: string, name?: string) => new RawResource(url, name);
+                break;
+            default:
+                return;
+        }
+        while (ext.startsWith('.')) {
+            ext = ext.slice(0, 1);
+        }
+        _extNameMap.set(ext, factoryFn);
+    }
+
+    export function registerResourceType(extName: string[] | string, type: ResourceType): void {
+        if (typeof (extName) === 'string') {
+            _registerResourceType(extName, type);
+        } else {
+            for (let en of extName) {
+                _registerResourceType(en, type);
+            }
+        }
+    }
+
+    registerResourceType(["png", "jpg", "bmp", "jpeg", "gif", "ico", "tiff", "webp", "svg"], ResourceType.Image);
+    registerResourceType(["mpeg4", "webm", "mp4"], ResourceType.Video);
+    registerResourceType(["ogg", "mp3", "wav"], ResourceType.Audio);
+    registerResourceType(["txt", "xml", "vsh", "fsh", "atlas", "html", "json"], ResourceType.Text);
+    registerResourceType(["blob"], ResourceType.Blob);
+    registerResourceType(["bin"], ResourceType.Raw);
+
     export class ResourceDBEditor implements IResourceDBEditor, IResourceDB {
         private mResourceList: Map<string, IResource> = new Map<string, IResource>();
-        public Add(resource: IResource): ResourceDBEditor {
-            this.mResourceList.set(resource.Name, resource);
-            return this;
+
+        public Add(resourceUrl: string, name?: string): IResourceDBEditor;
+        public Add(resource: IResource): IResourceDBEditor;
+        public Add(resource: IResource | string, name?: string): IResourceDBEditor {
+            if (typeof (resource) === 'string') {
+                let ext = utility.Path.extname(resource).toLowerCase();
+                if (ext.startsWith('.')) {
+                    ext = ext.substr(1);
+                }
+                let factoryFn = _extNameMap.get(ext);
+                if (!factoryFn) {
+                    factoryFn = (url: string, n?: string) => new RawResource(url, n);
+                }
+                return this._Add(factoryFn(resource, name));
+            }
+            return this._Add(resource);
         }
+
         public Clear(): void {
             this.mResourceList.clear();
         }
@@ -318,6 +412,11 @@ namespace ftk {
         }
 
         public Edit(): IResourceDBEditor {
+            return this;
+        }
+
+        private _Add(resource: IResource): ResourceDBEditor {
+            this.mResourceList.set(resource.Name, resource);
             return this;
         }
     }

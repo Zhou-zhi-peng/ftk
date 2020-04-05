@@ -3,41 +3,25 @@
 
 namespace ftk {
     export class ImageSprite extends RectangleSprite {
-        private mImage: ImageResource;
-        constructor(resource?: ImageResource, w?: number, h?: number, id?: string) {
+        private mTexture: ITexture;
+        public constructor(texture?: ITexture, id?: string) {
             super(0, 0, 0, 0, id);
-            if (resource) {
-                this.mImage = resource;
-            }
-            else {
-                this.mImage = new ImageResource("");
-            }
-            if (w && h) {
-                this.Resize(w, h);
-            } else {
-                this.Resize(this.mImage.Image.naturalWidth, this.mImage.Image.naturalHeight);
-            }
-            let size = this.Box.size;
-            this.BasePoint = new Point(size.cx / 2, size.cy / 2);
+            this.mTexture = texture ? texture : EmptyTexture;
+            this.Resize(this.mTexture.Width, this.mTexture.Height);
         }
 
-        public get Resource(): ImageResource {
-            return this.mImage;
+        public get Texture(): ITexture {
+            return this.mTexture;
         }
 
-        public set Resource(value: ImageResource) {
-            this.mImage = value;
+        public set Texture(value: ITexture) {
+            this.mTexture = value;
         }
 
         protected OnRander(rc: CanvasRenderingContext2D): void {
-            let image = this.Resource.Image;
             let box = this.Box;
-            rc.drawImage(
-                image,
-                0,
-                0,
-                image.naturalWidth,
-                image.naturalHeight,
+            this.mTexture.Draw(
+                rc,
                 box.x,
                 box.y,
                 box.w,

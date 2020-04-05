@@ -9,6 +9,8 @@ namespace ftk {
         public BackgroundColor: Color;
         public BorderColor: Color;
         public Text: string | undefined;
+        public FontName: string;
+        public FontSize: number;
 
         public constructor(id?: string) {
             super(id);
@@ -17,6 +19,8 @@ namespace ftk {
             this.BackgroundColor = new Color(0, 0, 255);
             this.BorderColor = new Color(255, 255, 255);
             this.Text = undefined;
+            this.FontName = "serif";
+            this.FontSize = 16;
         }
         protected abstract OnDrawShape(rc: CanvasRenderingContext2D): void;
         protected OnRander(rc: CanvasRenderingContext2D): void {
@@ -28,7 +32,7 @@ namespace ftk {
                 rc.textAlign = 'center';
                 rc.textBaseline = 'middle';
                 rc.fillStyle = this.ForegroundColor.toRGBAString();
-
+                rc.font = this.FontSize.toString() + 'px ' + this.FontName;
                 let c = this.getRectangle().center;
                 rc.fillText(this.Text, c.x, c.y);
             }
@@ -107,8 +111,12 @@ namespace ftk {
 
         protected OnDrawShape(rc: CanvasRenderingContext2D): void {
             let r = this.getRectangle();
-            rc.fillRect(r.x, r.y, r.w, r.h);
-            rc.strokeRect(r.x, r.y, r.w, r.h);
+            if (this.BackgroundColor.A > 0) {
+                rc.fillRect(r.x, r.y, r.w, r.h);
+            }
+            if (this.BorderColor.A > 0) {
+                rc.strokeRect(r.x, r.y, r.w, r.h);
+            }
         }
     }
 

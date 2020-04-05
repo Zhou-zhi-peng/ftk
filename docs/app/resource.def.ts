@@ -1,16 +1,19 @@
 namespace app {
     export function PrepareResources(): void {
         let R = ftk.Engine.R.Edit();
-        let ImageR = ftk.ImageResource;
-        let AudioR = ftk.AudioResource;
-        // let VideoR = ftk.VideoResource;
 
-        R.Add(new ImageR("res/images/desktop.jpg"));
-        R.Add(new ImageR("res/images/ready.png"));
-        R.Add(new ImageR("res/images/ready-down.png"));
-        R.Add(new ImageR("res/images/ready-hover.png"));
+        R.Add("res/images/spaceBG.jpg", "BG");
+        R.Add("res/images/ready.png", "ready");
+        R.Add("res/images/ready-down.png", "ready-down");
+        R.Add("res/images/ready-hover.png", "ready-hover");
 
-        R.Add(new AudioR("res/audios/bk.mp3"));
+        R.Add("res/images/cloud0.png", "cloud0");
+        R.Add("res/images/cloud1.png", "cloud1");
 
+        for (let i = 1; i < 18; ++i) {
+            R.Add("/res/images/m0/" + i.toString() + ".png", "m" + i.toString());
+        }
+
+        R.Add("res/video/oceans.mp4", "oceans");
     }
 }

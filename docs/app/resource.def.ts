@@ -11,7 +11,7 @@ namespace app {
         R.Add("res/images/cloud1.png", "cloud1");
 
         for (let i = 1; i < 18; ++i) {
-            R.Add("/res/images/m" + i.toString() + ".png", "m" + i.toString());
+            R.Add("res/images/m" + i.toString() + ".png", "m" + i.toString());
         }
 
         R.Add("res/video/oceans.mp4", "oceans");

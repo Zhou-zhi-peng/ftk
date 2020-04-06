@@ -142,17 +142,15 @@ namespace ftk {
             return this.mData;
         }
         protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
-            let xhr = new XMLHttpRequest();
-            xhr.onload = () => {
-                this.mData = xhr.responseText;
+            let client = new net.StringHttpClient();
+            client.on('load', (res: net.IHttpResponse) => {
+                this.mData = res.response;
                 this.setLoaded(true);
                 resolve();
-            };
-            xhr.onerror = (ev) => { reject(ev); };
-            xhr.onabort = (ev) => { reject(ev); };
+            });
+            client.on('error', (ev: any) => reject(ev));
 
-            xhr.responseType = "text";
-            xhr.open("GET", this.Url, true);
+            client.Get(this.Url);
         }
     }
 
@@ -168,17 +166,16 @@ namespace ftk {
             return this.mData;
         }
         protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
-            let xhr = new XMLHttpRequest();
-            xhr.onload = () => {
-                this.mData = xhr.response;
+            let client = new net.HttpClient();
+            client.on('load', (res: net.IHttpResponse) => {
+                this.mData = res.response;
                 this.setLoaded(true);
                 resolve();
-            };
-            xhr.onerror = (ev) => { reject(ev); };
-            xhr.onabort = (ev) => { reject(ev); };
+            });
+            client.on('error', (ev: any) => reject(ev));
 
-            xhr.responseType = "blob";
-            xhr.open("GET", this.Url, true);
+            client.ResponseType = net.HttpResponseType.Blob;
+            client.Get(this.Url);
         }
     }
 
@@ -194,18 +191,16 @@ namespace ftk {
             return this.mData;
         }
         protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
-            let xhr = new XMLHttpRequest();
-            xhr.onload = () => {
-                let buffer = xhr.response as ArrayBuffer;
-                this.mData = buffer;
+            let client = new net.HttpClient();
+            client.on('load', (res: net.IHttpResponse) => {
+                this.mData = res.response;
                 this.setLoaded(true);
                 resolve();
-            };
-            xhr.onerror = (ev) => { reject(ev); };
-            xhr.onabort = (ev) => { reject(ev); };
+            });
+            client.on('error', (ev: any) => reject(ev));
 
-            xhr.responseType = "arraybuffer";
-            xhr.open("GET", this.Url, true);
+            client.ResponseType = net.HttpResponseType.Buffer;
+            client.Get(this.Url);
         }
     }
 
@@ -219,20 +214,17 @@ namespace ftk {
         public abstract make(): IAnimation;
         protected abstract OnLoadAnimation(animationData: any, resolve: () => void, reject: (reason: any) => void): void;
         protected OnLoad(resolve: () => void, reject: (reason: any) => void): void {
-            let xhr = new XMLHttpRequest();
-            xhr.onload = () => {
+            let client = new net.JsonHttpClient();
+            client.on('load', (res: net.IHttpResponse) => {
                 try {
-                    this.mAnimationData = JSON.parse(xhr.responseText);
+                    this.mAnimationData = res.response;
                     this.OnLoadAnimation(this.mAnimationData, resolve, reject);
                 } catch (e) {
                     reject(e);
                 }
-            };
-            xhr.onerror = (ev) => { reject(ev); };
-            xhr.onabort = (ev) => { reject(ev); };
-
-            xhr.responseType = "text";
-            xhr.open("GET", this.Url, true);
+            });
+            client.on('error', (ev: any) => reject(ev));
+            client.Get(this.Url);
         }
     }
 
@@ -282,7 +274,7 @@ namespace ftk {
                 return;
         }
         while (ext.startsWith('.')) {
-            ext = ext.slice(0, 1);
+            ext = ext.substr(1);
         }
         _extNameMap.set(ext, factoryFn);
     }

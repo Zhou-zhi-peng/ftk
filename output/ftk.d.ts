@@ -233,53 +233,65 @@ declare namespace ftk {
 declare namespace ftk.utility {
     function GenerateIDString(n: number): string;
     function UTF8BufferEncodeLength(input: string): number;
-    function UTF8BufferEncode(input: string): ArrayBuffer;
-    function UTF8BufferDecode(buffer: ArrayBuffer, offset?: number, length?: number): string;
-    export namespace Path {
+    function UTF8BufferEncode(input: string): Uint8Array;
+    function UTF8BufferDecode(buffer: ArrayBuffer | Uint8Array): string;
+    function HexStringToBuffer(hexString: string): Uint8Array;
+    function BufferToHexString(buffer: ArrayBuffer | Uint8Array): string;
+    function BufferToBase64(buffer: ArrayBuffer | Uint8Array): string;
+    function Base64ToBuffer(base64String: string): Uint8Array;
+    function ToURLParameters(data: any, traditional?: boolean): string;
+    function PrefixPad(s: string, n: number, pad: string): string;
+    function DateFormat(fmt: string, date: Date): string;
+
+    namespace Path {
         // 路径分割符
-        export const sep: string;
+        const sep: string;
 
         // 正常化路径 （合并路径中的相对访问符 .. 和 .）
-        export function normalize(path: string): string;
+        function normalize(path: string): string;
 
         // 路径拼接
-        export function join(...args: string[]): string;
+        function join(...args: string[]): string;
 
         // 提取URL中的路径部分
-        export function urlpath(url: string): string;
+        function urlpath(url: string): string;
 
         // 是否为一个正常的URL
-        export function isurl(path: string): boolean;
+        function isurl(path: string): boolean;
 
         // 将相对路径转为绝对路径，pwd 为当前目录，默认为 '/'
-        export function resolve(path: string, pwd?: string): string;
+        function resolve(path: string, pwd?: string): string;
 
         // 获取从path位置到 to 的位置的相对路径，pwd 为当前目录，默认为 '/'
-        export function relative(path: string, to: string, pwd?: string): string;
+        function relative(path: string, to: string, pwd?: string): string;
 
         //获取扩展名
-        export function extname(path: string): string;
+        function extname(path: string): string;
 
         //获取基础名
-        export function basename(path: string): string;
+        function basename(path: string): string;
 
         //获取路径中最后一个部分的名称( abc/def/efg 返回efg )
-        export function lastpart(path: string): string;
+        function lastpart(path: string): string;
 
         //获取目录名称
-        export function dirname(path: string): string;
+        function dirname(path: string): string;
 
         //改变扩展名
-        export function chextension(path: string, name: string): string;
+        function chextension(path: string, name: string): string;
 
         //改变基础名
-        export function chbasename(path: string, name: string): string;
+        function chbasename(path: string, name: string): string;
 
         //改变最后一个部分的名称
-        export function chlastpart(path: string, name: string): string;
+        function chlastpart(path: string, name: string): string;
 
         //是否为绝对路径
-        export function isabsolute(path: string): boolean;
+        function isabsolute(path: string): boolean;
+    }
+
+    namespace api {
+        function createOffscreenCanvas(width: number, height: number): HTMLCanvasElement;
     }
 }
 declare namespace ftk {
@@ -367,7 +379,7 @@ declare namespace ftk {
         protected OnRander(rc: CanvasRenderingContext2D): void;
     }
 
-    export class LineShape extends Shape {
+    class LineShape extends Shape {
         constructor(start: Point, end: Point, id?: string);
         public PickTest(point: Point): boolean;
 
@@ -377,7 +389,7 @@ declare namespace ftk {
         protected OnDrawShape(rc: CanvasRenderingContext2D): void;
     }
 
-    export class RectangleShape extends Shape {
+    class RectangleShape extends Shape {
         constructor(x: number, y: number, w: number, h: number, id?: string);
 
         protected getRectangle(): Rectangle;
@@ -386,7 +398,7 @@ declare namespace ftk {
         protected OnDrawShape(rc: CanvasRenderingContext2D): void;
     }
 
-    export class PolygonShape extends Shape {
+    class PolygonShape extends Shape {
         constructor(vertexs?: IReadonlyArray<Point>, id?: string);
         public PickTest(point: Point): boolean;
         protected getRectangle(): Rectangle;
@@ -395,13 +407,13 @@ declare namespace ftk {
         protected OnDrawShape(rc: CanvasRenderingContext2D): void;
     }
 
-    export class EPolygonShape extends PolygonShape {
+    class EPolygonShape extends PolygonShape {
         constructor(x: number, y: number, radius: number, side: number, id?: string);
 
         protected static getVertexs(x: number, y: number, radius: number, side: number): Point[];
     }
 
-    export class CircleShape extends Shape {
+    class CircleShape extends Shape {
         constructor(x: number, y: number, radius: number, id?: string);
 
         public PickTest(point: Point): boolean;
@@ -799,7 +811,7 @@ declare namespace ftk {
 }
 
 declare namespace ftk {
-    export interface ITexture {
+    interface ITexture {
         readonly Width: number;
         readonly Height: number;
         Draw(rc: CanvasRenderingContext2D, dx: number, dy: number, dw: number, dh: number): void;
@@ -807,9 +819,9 @@ declare namespace ftk {
         BuildOutline(threshold?: number): Polygon;
     }
 
-    export type TextureImageSource = HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | HTMLVideoElement | ImageBitmap;
-    export const EmptyTexture: ITexture;
-    export function createTexture(image: TextureImageSource | ImageResource | VideoResource | undefined, x?: number, y?: number, w?: number, h?: number): ITexture;
+    type TextureImageSource = HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | HTMLVideoElement | ImageBitmap;
+    const EmptyTexture: ITexture;
+    function createTexture(image: TextureImageSource | ImageResource | VideoResource | undefined, x?: number, y?: number, w?: number, h?: number): ITexture;
 }
 
 declare namespace ftk {
@@ -931,7 +943,82 @@ declare namespace ftk.net {
         once<K extends keyof ArrayBufferChannelEventMap>(evt: K, listener: ArrayBufferChannelEventMap[K]): void;
         off<K extends keyof ArrayBufferChannelEventMap>(evt: K, listener: ArrayBufferChannelEventMap[K]): void;
     }
+
+    interface IHttpResponse {
+        readonly status: number;
+        readonly message: string;
+        readonly responseType: string;
+        readonly response: any;
+        getHeader(name: string): string | null;
+        getAllHeaders(): string;
+    }
+
+    enum HttpResponseType {
+        Buffer,
+        Blob,
+        Text,
+        XML,
+        JSON
+    }
+
+    interface HttpClientEventMap {
+        'start': () => void;
+        'progress': (loaded: number, total: number) => void;
+        'load': (response: IHttpResponse) => void;
+        'error': (message: string) => void;
+        'end': () => void;
+    }
+
+    class HttpClient extends EventEmitter {
+        Username: string | undefined;
+        Password: string | undefined;
+        ResponseType: HttpResponseType;
+        Sync: boolean;
+        Timeout: number;
+
+        constructor();
+
+        Get(url: string, data?: any): IHttpResponse;
+        Post(url: string, data?: any): IHttpResponse;
+        Put(url: string, data?: any): IHttpResponse;
+        Delete(url: string, data?: any): IHttpResponse;
+
+        Request(method: string, url: string, data?: any): IHttpResponse;
+        SetHeader(name: string, value: any): void;
+
+        Cancel(): void;
+
+        addListener<K extends keyof HttpClientEventMap>(evt: K, listener: HttpClientEventMap[K]): void;
+        removeListener<K extends keyof HttpClientEventMap>(evt: K, listener?: HttpClientEventMap[K]): void;
+        on<K extends keyof HttpClientEventMap>(evt: K, listener: HttpClientEventMap[K]): void;
+        once<K extends keyof HttpClientEventMap>(evt: K, listener: HttpClientEventMap[K]): void;
+        off<K extends keyof HttpClientEventMap>(evt: K, listener: HttpClientEventMap[K]): void;
+
+        protected FormatParameters(data: any): any;
+        protected FormatResult(data: any): any;
+    }
+
+    class XMLHttpClient extends HttpClient {
+        constructor();
+        protected FormatParameters(data: any): any;
+    }
+
+    class JsonHttpClient extends HttpClient {
+        constructor();
+        protected FormatParameters(data: any): any;
+    }
+
+    class StringHttpClient extends HttpClient {
+        constructor();
+        protected FormatParameters(data: any): any;
+    }
+
+    class BufferHttpClient extends HttpClient {
+        constructor();
+        protected FormatParameters(data: any): any;
+    }
 }
+
 declare namespace ftk {
     class VideoSprite extends RectangleSprite {
         constructor(resource?: VideoResource, w?: number, h?: number, id?: string);

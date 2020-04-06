@@ -755,8 +755,7 @@ var ftk;
         }
         utility.UTF8BufferEncodeLength = UTF8BufferEncodeLength;
         function UTF8BufferEncode(input) {
-            let buffer = new ArrayBuffer(UTF8BufferEncodeLength(input));
-            let output = new Uint8Array(buffer);
+            let output = new Uint8Array(UTF8BufferEncodeLength(input));
             let pos = 0;
             for (let i = 0; i < input.length; i++) {
                 let charCode = input.charCodeAt(i);
@@ -783,20 +782,21 @@ var ftk;
                     output[pos++] = charCode & 0x3F | 0x80;
                 }
             }
-            return buffer;
+            return output;
         }
         utility.UTF8BufferEncode = UTF8BufferEncode;
-        function UTF8BufferDecode(buffer, offset, length) {
+        function UTF8BufferDecode(buffer) {
             let output = "";
             let utf16;
             let pos = 0;
-            if (!offset) {
-                offset = 0;
+            let input;
+            if (buffer instanceof ArrayBuffer) {
+                input = new Uint8Array(buffer);
             }
-            if (!length) {
-                length = buffer.byteLength;
+            else {
+                input = buffer;
             }
-            let input = new Uint8Array(buffer, offset, length);
+            let length = input.byteLength;
             while (pos < length) {
                 let byte1 = input[pos++];
                 if (byte1 < 128) {
@@ -842,6 +842,211 @@ var ftk;
             return output;
         }
         utility.UTF8BufferDecode = UTF8BufferDecode;
+        function HexStringToBuffer(hexString) {
+            let rawStr = hexString.trim().toUpperCase();
+            let len = rawStr.length;
+            let curCharCode = 0;
+            let utf8Arr = [];
+            let i = 0;
+            while (i < len) {
+                let h = 0;
+                while ((i < len) && ((h < 48 || h > 57) && (h < 65 || h > 70))) {
+                    h = rawStr.charCodeAt(i);
+                    i++;
+                }
+                if (i >= len) {
+                    break;
+                }
+                let l = 0;
+                while ((i < len) && ((l < 48 || l > 57) && (l < 65 || l > 70))) {
+                    l = rawStr.charCodeAt(i);
+                    i++;
+                }
+                if (l >= 48 && l <= 57) {
+                    l = l - 48;
+                }
+                else if (l >= 65 && l <= 70) {
+                    l = l - 65 + 10;
+                }
+                else {
+                    break;
+                }
+                if (h >= 48 && h <= 57) {
+                    h = h - 48;
+                }
+                else if (h >= 65 && h <= 70) {
+                    h = h - 65 + 10;
+                }
+                else {
+                    break;
+                }
+                curCharCode = l + (h << 4);
+                utf8Arr.push(curCharCode);
+            }
+            return new Uint8Array(utf8Arr);
+        }
+        utility.HexStringToBuffer = HexStringToBuffer;
+        function BufferToHexString(buffer) {
+            let input;
+            if (buffer instanceof ArrayBuffer) {
+                input = new Uint8Array(buffer);
+            }
+            else {
+                input = buffer;
+            }
+            if (input && input.byteLength) {
+                let length = input.byteLength;
+                let output = "";
+                for (let i = 0; i < length; i++) {
+                    let tmp = input[i].toString(16);
+                    if (tmp.length > 1) {
+                        output = output + tmp + " ";
+                    }
+                    else {
+                        output = output + "0" + tmp + " ";
+                    }
+                }
+                return output;
+            }
+            return "";
+        }
+        utility.BufferToHexString = BufferToHexString;
+        function _uint6ToB64(nUint6) {
+            return nUint6 < 26 ? nUint6 + 65
+                : nUint6 < 52 ? nUint6 + 71
+                    : nUint6 < 62 ? nUint6 - 4
+                        : nUint6 === 62 ? 43
+                            : nUint6 === 63 ? 47
+                                : 65;
+        }
+        function _b64ToUint6(nChr) {
+            return nChr > 64 && nChr < 91 ?
+                nChr - 65
+                : nChr > 96 && nChr < 123 ?
+                    nChr - 71
+                    : nChr > 47 && nChr < 58 ?
+                        nChr + 4
+                        : nChr === 43 ?
+                            62
+                            : nChr === 47 ?
+                                63
+                                :
+                                    0;
+        }
+        function BufferToBase64(buffer) {
+            let input;
+            if (buffer instanceof ArrayBuffer) {
+                input = new Uint8Array(buffer);
+            }
+            else {
+                input = buffer;
+            }
+            let length = input.byteLength;
+            let eqLen = (3 - (length % 3)) % 3;
+            let sB64Enc = "";
+            for (let nMod3, nLen = length, nUint24 = 0, nIdx = 0; nIdx < nLen; nIdx++) {
+                nMod3 = nIdx % 3;
+                nUint24 |= input[nIdx] << (16 >>> nMod3 & 24);
+                if (nMod3 === 2 || length - nIdx === 1) {
+                    sB64Enc += String.fromCharCode(_uint6ToB64(nUint24 >>> 18 & 63), _uint6ToB64(nUint24 >>> 12 & 63), _uint6ToB64(nUint24 >>> 6 & 63), _uint6ToB64(nUint24 & 63));
+                    nUint24 = 0;
+                }
+            }
+            return eqLen === 0 ? sB64Enc : sB64Enc.substring(0, sB64Enc.length - eqLen) + (eqLen === 1 ? "=" : "==");
+        }
+        utility.BufferToBase64 = BufferToBase64;
+        function Base64ToBuffer(base64String) {
+            let sB64Enc = base64String.replace(/[^A-Za-z0-9\+\/]/g, "");
+            let nInLen = sB64Enc.length;
+            let nOutLen = nInLen * 3 + 1 >>> 2;
+            let aBytes = new Uint8Array(nOutLen);
+            for (let nMod3, nMod4, nUint24 = 0, nOutIdx = 0, nInIdx = 0; nInIdx < nInLen; nInIdx++) {
+                nMod4 = nInIdx & 3;
+                nUint24 |= _b64ToUint6(sB64Enc.charCodeAt(nInIdx)) << 18 - 6 * nMod4;
+                if (nMod4 === 3 || nInLen - nInIdx === 1) {
+                    for (nMod3 = 0; nMod3 < 3 && nOutIdx < nOutLen; nMod3++, nOutIdx++) {
+                        aBytes[nOutIdx] = nUint24 >>> (16 >>> nMod3 & 24) & 255;
+                    }
+                    nUint24 = 0;
+                }
+            }
+            return aBytes;
+        }
+        utility.Base64ToBuffer = Base64ToBuffer;
+        function _toURLParameters(results, data, traditional, scope) {
+            let type = typeof (data);
+            if (type === 'object') {
+                let is_array = Array.isArray(data);
+                for (const key in data) {
+                    let value = data[key];
+                    let newscope = key;
+                    if (scope) {
+                        newscope = traditional ? scope : scope + '[' + (is_array ? '' : newscope) + ']';
+                    }
+                    if (!scope && is_array) {
+                        data.add(value.name, value.value);
+                    }
+                    else if (traditional ? (Array.isArray(value)) : (typeof (value) === 'object')) {
+                        _toURLParameters(results, value, traditional, newscope);
+                    }
+                    else {
+                        results.push({ name: newscope, value });
+                    }
+                }
+            }
+            else if (type !== 'undefined') {
+                if (data !== null) {
+                    results.push({ name: data.toString(), value: data.toString() });
+                }
+                else {
+                    results.push({ name: data.toString(), value: 'null' });
+                }
+            }
+        }
+        function ToURLParameters(data, traditional) {
+            let kvs = [];
+            let prarmStrings = [];
+            _toURLParameters(kvs, data, traditional ? traditional : false, '');
+            for (const r of kvs) {
+                prarmStrings.push(encodeURIComponent(r.name) + '=' + encodeURIComponent(r.value));
+            }
+            return prarmStrings.join('&').replace('%20', '+');
+        }
+        utility.ToURLParameters = ToURLParameters;
+        function PrefixPad(s, n, pad = ' ') {
+            if (n <= s.length) {
+                return s.substr(s.length - n);
+            }
+            if (s.length == 0) {
+                return Array(n).join(pad);
+            }
+            if (n === 2) {
+                return pad + s;
+            }
+            return (Array(n - s.length + 1).join(pad) + s);
+        }
+        utility.PrefixPad = PrefixPad;
+        function DateFormat(fmt, date) {
+            let ret;
+            const opt = {
+                "Y+": date.getFullYear().toString(),
+                "m+": (date.getMonth() + 1).toString(),
+                "d+": date.getDate().toString(),
+                "H+": date.getHours().toString(),
+                "M+": date.getMinutes().toString(),
+                "S+": date.getSeconds().toString(),
+                "X+": date.getMilliseconds().toString(),
+            };
+            let data = opt;
+            for (let k in opt) {
+                ret = new RegExp("(" + k + ")").exec(fmt);
+                if (ret) {
+                    fmt = fmt.replace(ret[1], (ret[1].length == 1) ? (data[k]) : (PrefixPad(data[k], ret[1].length, "0")));
+                }
+            }
+            return fmt;
+        }
+        utility.DateFormat = DateFormat;
         let Path;
         (function (Path) {
             const splitPathRegex = /^(\/?|)([\s\S]*?)(?:(\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
@@ -909,7 +1114,7 @@ var ftk;
             }
             function _url_to_string(url) {
                 let r = '';
-                if (url.port) {
+                if (url.protocol) {
                     r += url.protocol;
                     r += "://";
                 }
@@ -1850,7 +2055,8 @@ var ftk;
             this.StartLoop();
             this.OnRun();
         }
-        Pause() {
+        getViewportImage() {
+            return this.mCanvas.toDataURL();
         }
         Notify(source, name, broadcast, message) {
             let ev = new ftk.NoticeEvent(source, name, broadcast, message);
@@ -3470,16 +3676,14 @@ var ftk;
             return this.mData;
         }
         OnLoad(resolve, reject) {
-            let xhr = new XMLHttpRequest();
-            xhr.onload = () => {
-                this.mData = xhr.responseText;
+            let client = new ftk.net.StringHttpClient();
+            client.on('load', (res) => {
+                this.mData = res.response;
                 this.setLoaded(true);
                 resolve();
-            };
-            xhr.onerror = (ev) => { reject(ev); };
-            xhr.onabort = (ev) => { reject(ev); };
-            xhr.responseType = "text";
-            xhr.open("GET", this.Url, true);
+            });
+            client.on('error', (ev) => reject(ev));
+            client.Get(this.Url);
         }
     }
     ftk.TextResource = TextResource;
@@ -3493,16 +3697,15 @@ var ftk;
             return this.mData;
         }
         OnLoad(resolve, reject) {
-            let xhr = new XMLHttpRequest();
-            xhr.onload = () => {
-                this.mData = xhr.response;
+            let client = new ftk.net.HttpClient();
+            client.on('load', (res) => {
+                this.mData = res.response;
                 this.setLoaded(true);
                 resolve();
-            };
-            xhr.onerror = (ev) => { reject(ev); };
-            xhr.onabort = (ev) => { reject(ev); };
-            xhr.responseType = "blob";
-            xhr.open("GET", this.Url, true);
+            });
+            client.on('error', (ev) => reject(ev));
+            client.ResponseType = ftk.net.HttpResponseType.Blob;
+            client.Get(this.Url);
         }
     }
     ftk.BlobResource = BlobResource;
@@ -3516,17 +3719,15 @@ var ftk;
             return this.mData;
         }
         OnLoad(resolve, reject) {
-            let xhr = new XMLHttpRequest();
-            xhr.onload = () => {
-                let buffer = xhr.response;
-                this.mData = buffer;
+            let client = new ftk.net.HttpClient();
+            client.on('load', (res) => {
+                this.mData = res.response;
                 this.setLoaded(true);
                 resolve();
-            };
-            xhr.onerror = (ev) => { reject(ev); };
-            xhr.onabort = (ev) => { reject(ev); };
-            xhr.responseType = "arraybuffer";
-            xhr.open("GET", this.Url, true);
+            });
+            client.on('error', (ev) => reject(ev));
+            client.ResponseType = ftk.net.HttpResponseType.Buffer;
+            client.Get(this.Url);
         }
     }
     ftk.RawResource = RawResource;
@@ -3536,20 +3737,18 @@ var ftk;
         }
         get Type() { return ResourceType.Animation; }
         OnLoad(resolve, reject) {
-            let xhr = new XMLHttpRequest();
-            xhr.onload = () => {
+            let client = new ftk.net.JsonHttpClient();
+            client.on('load', (res) => {
                 try {
-                    this.mAnimationData = JSON.parse(xhr.responseText);
+                    this.mAnimationData = res.response;
                     this.OnLoadAnimation(this.mAnimationData, resolve, reject);
                 }
                 catch (e) {
                     reject(e);
                 }
-            };
-            xhr.onerror = (ev) => { reject(ev); };
-            xhr.onabort = (ev) => { reject(ev); };
-            xhr.responseType = "text";
-            xhr.open("GET", this.Url, true);
+            });
+            client.on('error', (ev) => reject(ev));
+            client.Get(this.Url);
         }
     }
     ftk.AnimationResource = AnimationResource;
@@ -3580,7 +3779,7 @@ var ftk;
                 return;
         }
         while (ext.startsWith('.')) {
-            ext = ext.slice(0, 1);
+            ext = ext.substr(1);
         }
         _extNameMap.set(ext, factoryFn);
     }
@@ -4101,6 +4300,295 @@ var ftk;
             }
         }
         net.ArrayBufferChannel = ArrayBufferChannel;
+        class _HttpResponseImpl {
+            constructor(xhr, dataFormater) {
+                this.mXHR = xhr;
+                this.mDataFormater = dataFormater;
+            }
+            get status() {
+                return this.mXHR.status;
+            }
+            get message() {
+                return this.mXHR.statusText;
+            }
+            get responseType() {
+                return this.mXHR.responseType;
+            }
+            get response() {
+                return this.mDataFormater(this.mXHR.response);
+            }
+            getHeader(name) {
+                return this.mXHR.getResponseHeader(name);
+            }
+            getAllHeaders() {
+                return this.mXHR.getAllResponseHeaders();
+            }
+        }
+        let HttpResponseType;
+        (function (HttpResponseType) {
+            HttpResponseType[HttpResponseType["Buffer"] = 0] = "Buffer";
+            HttpResponseType[HttpResponseType["Blob"] = 1] = "Blob";
+            HttpResponseType[HttpResponseType["Text"] = 2] = "Text";
+            HttpResponseType[HttpResponseType["XML"] = 3] = "XML";
+            HttpResponseType[HttpResponseType["JSON"] = 4] = "JSON";
+        })(HttpResponseType = net.HttpResponseType || (net.HttpResponseType = {}));
+        class HttpClient extends ftk.EventEmitter {
+            constructor() {
+                super();
+                this.mXHR = null;
+                this.mHeaders = new Map();
+                this.Sync = false;
+                this.Timeout = 0;
+                this.mResponseType = '';
+            }
+            get ResponseType() {
+                switch (this.mResponseType.toLowerCase()) {
+                    case 'arraybuffer':
+                        return HttpResponseType.Buffer;
+                    case 'blob':
+                        return HttpResponseType.Blob;
+                    case 'document':
+                        return HttpResponseType.XML;
+                    case 'json':
+                        return HttpResponseType.JSON;
+                    case 'text':
+                        return HttpResponseType.Text;
+                }
+                return HttpResponseType.Text;
+            }
+            set ResponseType(value) {
+                switch (value) {
+                    case HttpResponseType.Buffer:
+                        this.mResponseType = 'arraybuffer';
+                        break;
+                    case HttpResponseType.Blob:
+                        this.mResponseType = 'blob';
+                        break;
+                    case HttpResponseType.XML:
+                        this.mResponseType = 'document';
+                        break;
+                    case HttpResponseType.JSON:
+                        this.mResponseType = 'json';
+                        break;
+                    case HttpResponseType.Text:
+                        this.mResponseType = 'text';
+                        break;
+                    default:
+                        this.mResponseType = '';
+                        break;
+                }
+            }
+            Get(url, data) {
+                return this.Request('GET', url, data);
+            }
+            Post(url, data) {
+                return this.Request('POST', url, data);
+            }
+            Put(url, data) {
+                return this.Request('PUT', url, data);
+            }
+            Delete(url, data) {
+                return this.Request('DELETE', url, data);
+            }
+            Request(method, url, data) {
+                let xhr = new XMLHttpRequest();
+                let response = new _HttpResponseImpl(xhr, (d) => { return this.FormatResult(d); });
+                if (!this.Sync) {
+                    xhr.onloadstart = () => {
+                        try {
+                            this.emit('start');
+                        }
+                        catch (e) {
+                            console.error(e);
+                        }
+                    };
+                    xhr.onprogress = (ev) => {
+                        try {
+                            this.emit('progress', ev.loaded, ev.total);
+                        }
+                        catch (e) {
+                            console.error(e);
+                        }
+                    };
+                    xhr.onload = () => {
+                        try {
+                            this.emit('load', response);
+                        }
+                        catch (e) {
+                            try {
+                                this.emit('error', e.message);
+                            }
+                            catch (e) {
+                                console.error(e);
+                            }
+                            console.error(e);
+                        }
+                    };
+                    xhr.onabort = () => {
+                        try {
+                            this.emit('error', 'abort');
+                        }
+                        catch (e) {
+                            console.error(e);
+                        }
+                    };
+                    xhr.onerror = () => {
+                        try {
+                            this.emit('error', 'unknown error');
+                        }
+                        catch (e) {
+                            console.error(e);
+                        }
+                    };
+                    xhr.ontimeout = () => {
+                        try {
+                            this.emit('error', 'timeout');
+                        }
+                        catch (e) {
+                            console.error(e);
+                        }
+                    };
+                    xhr.onloadend = () => {
+                        xhr.onloadstart = null;
+                        xhr.onprogress = null;
+                        xhr.onload = null;
+                        xhr.onabort = null;
+                        xhr.onerror = null;
+                        xhr.ontimeout = null;
+                        xhr.onloadend = null;
+                        try {
+                            this.emit('end');
+                        }
+                        catch (e) {
+                            console.error(e);
+                        }
+                    };
+                }
+                let reqUrl = url;
+                let isget = method.toLowerCase() === 'get';
+                if (isget && typeof (data) !== 'undefined') {
+                    let i = reqUrl.indexOf('?');
+                    if (i < 0) {
+                        i = reqUrl.indexOf('#');
+                    }
+                    if (i < 0) {
+                        reqUrl += '?';
+                        reqUrl += ftk.utility.ToURLParameters(data, true);
+                    }
+                    else {
+                        if (reqUrl[i] === '?') {
+                            reqUrl = reqUrl.substr(0, i + 1)
+                                + ftk.utility.ToURLParameters(data, true)
+                                + reqUrl.substr(i + 1);
+                        }
+                        else {
+                            reqUrl = reqUrl.substr(0, i)
+                                + '?'
+                                + ftk.utility.ToURLParameters(data, true)
+                                + reqUrl.substr(i);
+                        }
+                    }
+                }
+                this.mHeaders.forEach((k, v) => {
+                    xhr.setRequestHeader(k, v);
+                });
+                xhr.timeout = this.Timeout;
+                xhr.open(method, reqUrl, !this.Sync, this.Username, this.Password);
+                if (!isget) {
+                    let reqData = this.FormatParameters(data);
+                    if (reqData !== null) {
+                        xhr.send(reqData);
+                    }
+                }
+                else {
+                    xhr.send();
+                }
+                this.mXHR = xhr;
+                return response;
+            }
+            SetHeader(name, value) {
+                if (typeof (value) === 'undefined' || value === null) {
+                    this.mHeaders.delete(name);
+                }
+                else {
+                    this.mHeaders.set(name, value.toString());
+                }
+            }
+            Cancel() {
+                if (this.mXHR) {
+                    this.mXHR.abort();
+                }
+            }
+            FormatParameters(data) {
+                if (typeof (data) === 'undefined' || data === null) {
+                    return null;
+                }
+                return data;
+            }
+            FormatResult(data) {
+                return data;
+            }
+        }
+        net.HttpClient = HttpClient;
+        class XMLHttpClient extends HttpClient {
+            constructor() {
+                super();
+                this.ResponseType = HttpResponseType.XML;
+            }
+            FormatParameters(data) {
+                let r = super.FormatParameters(data);
+                if (r instanceof Node) {
+                    let serializer = new XMLSerializer();
+                    return serializer.serializeToString(r);
+                }
+                return r.toString();
+            }
+        }
+        net.XMLHttpClient = XMLHttpClient;
+        class JsonHttpClient extends HttpClient {
+            constructor() {
+                super();
+                this.ResponseType = HttpResponseType.JSON;
+            }
+            FormatParameters(data) {
+                let r = super.FormatParameters(data);
+                return JSON.stringify(r);
+            }
+        }
+        net.JsonHttpClient = JsonHttpClient;
+        class StringHttpClient extends HttpClient {
+            constructor() {
+                super();
+                this.ResponseType = HttpResponseType.Text;
+            }
+            FormatParameters(data) {
+                let r = super.FormatParameters(data);
+                if (r !== null) {
+                    return r.toString();
+                }
+                return '';
+            }
+        }
+        net.StringHttpClient = StringHttpClient;
+        class BufferHttpClient extends HttpClient {
+            constructor() {
+                super();
+                this.ResponseType = HttpResponseType.Buffer;
+            }
+            FormatParameters(data) {
+                if (data instanceof ArrayBuffer) {
+                    return data;
+                }
+                else if (ArrayBuffer.isView(data)) {
+                    return data;
+                }
+                else if (data || typeof (data) !== 'undefined' || data !== null) {
+                    return ftk.utility.UTF8BufferEncode(data.toString());
+                }
+                return new Uint8Array(0);
+            }
+        }
+        net.BufferHttpClient = BufferHttpClient;
     })(net = ftk.net || (ftk.net = {}));
 })(ftk || (ftk = {}));
 var ftk;

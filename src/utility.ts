@@ -31,9 +31,8 @@ namespace ftk.utility {
         return output;
     }
 
-    export function UTF8BufferEncode(input: string): ArrayBuffer {
-        let buffer = new ArrayBuffer(UTF8BufferEncodeLength(input));
-        let output = new Uint8Array(buffer);
+    export function UTF8BufferEncode(input: string): Uint8Array {
+        let output = new Uint8Array(UTF8BufferEncodeLength(input));
         let pos = 0;
         for (let i = 0; i < input.length; i++) {
             let charCode = input.charCodeAt(i);
@@ -58,16 +57,21 @@ namespace ftk.utility {
                 output[pos++] = charCode & 0x3F | 0x80;
             }
         }
-        return buffer;
+        return output;
     }
 
-    export function UTF8BufferDecode(buffer: ArrayBuffer, offset?: number, length?: number) {
+    export function UTF8BufferDecode(buffer: ArrayBuffer | Uint8Array): string {
         let output = "";
         let utf16;
         let pos = 0;
-        if (!offset) { offset = 0; }
-        if (!length) { length = buffer.byteLength; }
-        let input = new Uint8Array(buffer, offset, length);
+        let input: Uint8Array;
+        if (buffer instanceof ArrayBuffer) {
+            input = new Uint8Array(buffer);
+        } else {
+            input = buffer;
+        }
+        let length = input.byteLength;
+
         while (pos < length) {
             let byte1 = input[pos++];
             if (byte1 < 128) {
@@ -113,6 +117,221 @@ namespace ftk.utility {
             output += String.fromCharCode(utf16);
         }
         return output;
+    }
+
+    export function HexStringToBuffer(hexString: string): Uint8Array {
+        let rawStr = hexString.trim().toUpperCase();
+        let len = rawStr.length;
+        let curCharCode = 0;
+        let utf8Arr = [];
+        let i = 0;
+        while (i < len) {
+            let h = 0;
+            while ((i < len) && ((h < 48 || h > 57) && (h < 65 || h > 70))) {
+                h = rawStr.charCodeAt(i);
+                i++;
+            }
+
+            if (i >= len) {
+                break;
+            }
+
+            let l = 0;
+            while ((i < len) && ((l < 48 || l > 57) && (l < 65 || l > 70))) {
+                l = rawStr.charCodeAt(i);
+                i++;
+            }
+
+            if (l >= 48 && l <= 57) {
+                l = l - 48;
+            }
+            else if (l >= 65 && l <= 70) {
+                l = l - 65 + 10;
+            }
+            else {
+                break;
+            }
+
+            if (h >= 48 && h <= 57) {
+                h = h - 48;
+            }
+            else if (h >= 65 && h <= 70) {
+                h = h - 65 + 10;
+            }
+            else {
+                break;
+            }
+
+            curCharCode = l + (h << 4);
+            utf8Arr.push(curCharCode);
+        }
+        return new Uint8Array(utf8Arr);
+    }
+
+    export function BufferToHexString(buffer: ArrayBuffer | Uint8Array): string {
+        let input: Uint8Array;
+        if (buffer instanceof ArrayBuffer) {
+            input = new Uint8Array(buffer);
+        } else {
+            input = buffer;
+        }
+        if (input && input.byteLength) {
+            let length = input.byteLength;
+            let output = "";
+            for (let i = 0; i < length; i++) {
+                let tmp = input[i].toString(16);
+                if (tmp.length > 1) {
+                    output = output + tmp + " ";
+                }
+                else {
+                    output = output + "0" + tmp + " ";
+                }
+            }
+            return output;
+        }
+        return "";
+    }
+
+    function _uint6ToB64(nUint6: number): number {
+        return nUint6 < 26 ? nUint6 + 65
+            : nUint6 < 52 ? nUint6 + 71
+                : nUint6 < 62 ? nUint6 - 4
+                    : nUint6 === 62 ? 43
+                        : nUint6 === 63 ? 47
+                            : 65;
+    }
+
+    function _b64ToUint6(nChr: number): number {
+        return nChr > 64 && nChr < 91 ?
+            nChr - 65
+            : nChr > 96 && nChr < 123 ?
+                nChr - 71
+                : nChr > 47 && nChr < 58 ?
+                    nChr + 4
+                    : nChr === 43 ?
+                        62
+                        : nChr === 47 ?
+                            63
+                            :
+                            0;
+    }
+
+    export function BufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
+        let input: Uint8Array;
+        if (buffer instanceof ArrayBuffer) {
+            input = new Uint8Array(buffer);
+        } else {
+            input = buffer;
+        }
+        let length = input.byteLength;
+        let eqLen = (3 - (length % 3)) % 3;
+        let sB64Enc = "";
+        for (let nMod3, nLen = length, nUint24 = 0, nIdx = 0; nIdx < nLen; nIdx++) {
+            nMod3 = nIdx % 3;
+            nUint24 |= input[nIdx] << (16 >>> nMod3 & 24);
+            if (nMod3 === 2 || length - nIdx === 1) {
+                sB64Enc += String.fromCharCode(
+                    _uint6ToB64(nUint24 >>> 18 & 63),
+                    _uint6ToB64(nUint24 >>> 12 & 63),
+                    _uint6ToB64(nUint24 >>> 6 & 63),
+                    _uint6ToB64(nUint24 & 63)
+                );
+                nUint24 = 0;
+            }
+        }
+        return eqLen === 0 ? sB64Enc : sB64Enc.substring(0, sB64Enc.length - eqLen) + (eqLen === 1 ? "=" : "==");
+    }
+
+    export function Base64ToBuffer(base64String: string): Uint8Array {
+        let sB64Enc = base64String.replace(/[^A-Za-z0-9\+\/]/g, "");
+        let nInLen = sB64Enc.length;
+        let nOutLen = nInLen * 3 + 1 >>> 2;
+        let aBytes = new Uint8Array(nOutLen);
+
+        for (let nMod3, nMod4, nUint24 = 0, nOutIdx = 0, nInIdx = 0; nInIdx < nInLen; nInIdx++) {
+            nMod4 = nInIdx & 3;
+            nUint24 |= _b64ToUint6(sB64Enc.charCodeAt(nInIdx)) << 18 - 6 * nMod4;
+            if (nMod4 === 3 || nInLen - nInIdx === 1) {
+                for (nMod3 = 0; nMod3 < 3 && nOutIdx < nOutLen; nMod3++, nOutIdx++) {
+                    aBytes[nOutIdx] = nUint24 >>> (16 >>> nMod3 & 24) & 255;
+                }
+                nUint24 = 0;
+            }
+        }
+        return aBytes;
+    }
+
+    type _URL_PARAMS = { name: string, value: string }[];
+    function _toURLParameters(results: _URL_PARAMS, data: any, traditional: boolean, scope: string): void {
+        let type = typeof (data);
+        if (type === 'object') {
+            let is_array = Array.isArray(data);
+            for (const key in data) {
+                let value = data[key];
+                let newscope = key;
+                if (scope) {
+                    newscope = traditional ? scope : scope + '[' + (is_array ? '' : newscope) + ']';
+                }
+
+                if (!scope && is_array) {
+                    data.add(value.name, value.value);
+                } else if (traditional ? (Array.isArray(value)) : (typeof (value) === 'object')) {
+                    _toURLParameters(results, value, traditional, newscope);
+                } else {
+                    results.push({ name: newscope, value });
+                }
+            }
+        } else if (type !== 'undefined') {
+            if (data !== null) {
+                results.push({ name: data.toString(), value: data.toString() });
+            } else {
+                results.push({ name: data.toString(), value: 'null' });
+            }
+        }
+    }
+
+    export function ToURLParameters(data: any, traditional?: boolean): string {
+        let kvs: _URL_PARAMS = [];
+        let prarmStrings: string[] = [];
+        _toURLParameters(kvs, data, traditional ? traditional : false, '');
+        for (const r of kvs) {
+            prarmStrings.push(encodeURIComponent(r.name) + '=' + encodeURIComponent(r.value));
+        }
+        return prarmStrings.join('&').replace('%20', '+');
+    }
+
+    export function PrefixPad(s: string, n: number, pad: string = ' ') {
+        if (n <= s.length) {
+            return s.substr(s.length - n);
+        }
+        if (s.length == 0) {
+            return Array(n).join(pad);
+        }
+        if (n === 2) {
+            return pad + s;
+        }
+        return (Array(n - s.length + 1).join(pad) + s);
+    }
+
+    export function DateFormat(fmt: string, date: Date) {
+        let ret;
+        const opt = {
+            "Y+": date.getFullYear().toString(),
+            "m+": (date.getMonth() + 1).toString(),
+            "d+": date.getDate().toString(),
+            "H+": date.getHours().toString(),
+            "M+": date.getMinutes().toString(),
+            "S+": date.getSeconds().toString(),
+            "X+": date.getMilliseconds().toString(),
+        };
+        let data = opt as any;
+        for (let k in opt) {
+            ret = new RegExp("(" + k + ")").exec(fmt);
+            if (ret) {
+                fmt = fmt.replace(ret[1], (ret[1].length == 1) ? (data[k]) : (PrefixPad(data[k], ret[1].length, "0")));
+            }
+        }
+        return fmt;
     }
 
     export namespace Path {
@@ -199,7 +418,7 @@ namespace ftk.utility {
 
         function _url_to_string(url: urldata): string {
             let r = '';
-            if (url.port) {
+            if (url.protocol) {
                 r += url.protocol;
                 r += "://";
             }

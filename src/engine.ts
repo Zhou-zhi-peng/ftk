@@ -82,8 +82,8 @@ namespace ftk {
             this.OnRun();
         }
 
-        public Pause(): void {
-
+        public getViewportImage(): string {
+            return this.mCanvas.toDataURL();
         }
 
         public Notify(source: any, name: string, broadcast: boolean, message: any): void {

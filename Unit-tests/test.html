@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <svg width="325px" height="325px" version="1.1" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0 0 L80 80 M80 80
+               A 45 45, 0, 0, 0, 125 125" stroke="black" fill="transparent" />
+        <path d="M230 80
+               A 45 45, 0, 1, 0, 275 125
+               L 275 80 Z" fill="red" />
+        <path d="M80 230
+               A 45 45, 0, 0, 1, 125 275
+               L 125 230 Z" fill="purple" />
+        <path d="M230 230
+               A 45 45, 0, 1, 1, 275 275
+               L 275 230 Z" fill="blue" />
+    </svg>
+    <canvas id="myCanvas" width="600" height="500" style="border:1px solid #d3d3d3;">
+        Your browser does not support the HTML5 canvas tag.
+    </canvas>
+
+    <script>
+        function Point(x, y) {
+            this.x = x || 0;
+            this.y = y || 0;
+        }
+        function QBezierCurve(...args) {
+            if (args[0] instanceof Point) {
+                this.controlStart = args[0];
+                this.controlEnd = args[1];
+                this.start = args[2];
+                this.end = args[3];
+            } else if (typeof (args[0]) === 'number') {
+                this.controlStart = new Point(args[0], args[1]);
+                this.controlEnd = new Point(args[2], args[3]);
+                this.start = new Point(args[4], args[5]);
+                this.end = new Point(args[6], args[7]);
+            } else {
+                this.controlStart = new Point();
+                this.controlEnd = new Point();
+                this.start = new Point();
+                this.end = new Point();
+            }
+
+            this.fit = function (stept) {
+                let results = [];
+                for (let t = 0; t <= 1; t += stept) {
+                    results.push(this.getCurvePoint(t));
+                }
+                results.push(this.end);
+                return results;
+            }
+            this.getCurvePoint = function (t) {
+                let t0 = 1 - t;
+                let t0pow2 = t0 * t0;
+                let t0pow3 = t0pow2 * t0;
+                let tpow2 = t * t;
+                let tpow3 = tpow2 * t;
+
+                let x = this.start.x * t0pow3 +
+                    this.controlStart.x * t * t0pow2 * 3 +
+                    this.controlEnd.x * tpow2 * t0 * 3 +
+                    this.end.x * tpow3;
+                let y = this.start.y * t0pow3 +
+                    this.controlStart.y * t * t0pow2 * 3 +
+                    this.controlEnd.y * tpow2 * t0 * 3 +
+                    this.end.y * tpow3;
+                return new Point(x, y);
+            }
+        }
+
+
+        //M130 110 C 120 140, 180 140, 170 110
+        let bzc = new QBezierCurve(120, 140, 180, 140, 130, 110, 200, 200);
+        var c = document.getElementById("myCanvas");
+        var ctx = c.getContext("2d");
+        function test() {
+            ctx.clearRect(0, 0, 600, 500);
+            ctx.strokeStyle = "#000"
+            ctx.beginPath();
+            let arr = bzc.fit(0.05);
+            ctx.moveTo(arr[0].x, arr[0].y);
+            for (let v of arr) {
+                ctx.lineTo(v.x, v.y);
+            }
+            ctx.stroke();
+
+            ctx.strokeStyle = "#00F"
+            ctx.beginPath();
+            ctx.moveTo(bzc.controlStart.x, bzc.controlStart.y);
+            ctx.lineTo(bzc.start.x, bzc.start.y);
+            ctx.moveTo(bzc.controlEnd.x, bzc.controlEnd.y);
+            ctx.lineTo(bzc.end.x, bzc.end.y);
+            ctx.stroke();
+        }
+        test();
+        var xx = true;
+        c.addEventListener('mousedown', (ev) => {
+            if (xx) {
+                bzc.controlStart.x = ev.clientX;
+                bzc.controlStart.y = ev.clientY;
+            } else {
+                bzc.controlEnd.x = ev.clientX;
+                bzc.controlEnd.y = ev.clientY;
+            }
+            xx = !xx;
+            test();
+        });
+    </script>
+
+</body>
+
+</html>

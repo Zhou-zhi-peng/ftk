@@ -5,6 +5,35 @@ namespace ftk {
     const kPathBegin = 4;
     const kNoneBegin = 0;
 
+    class _drawGPathActionListener implements IGPathActionListener {
+        private graphics: GraphicsSprite;
+        public constructor(graphics: GraphicsSprite) {
+            this.graphics = graphics;
+        }
+
+        public moveTo(_from: Point, to: Point): void {
+            this.graphics.moveTo(to.x, to.y);
+        }
+        public lineTo(_from: Point, to: Point): void {
+            this.graphics.lineTo(to.x, to.y);
+        }
+        public bezierCurveTo(_from: Point, cs: Point, ce: Point, to: Point): void {
+            this.graphics.cubicCurveTo(cs.x, cs.y, ce.x, ce.y, to.x, to.y);
+        }
+        public qbezierCurveTo(_from: Point, c: Point, to: Point): void {
+            this.graphics.curveTo(c.x, c.y, to.x, to.y);
+        }
+        public ellipseTo(from: Point, r: Size, rotation: number, _laflag: number, _sflag: number, to: Point): void {
+            if (r.cx == r.cy) {
+                this.graphics.arcTo(from.x, from.y, to.x, to.y, r.cx);
+            } else {
+                this.graphics.ellipse(to.x, to.y, r.cx, r.cy, rotation);
+            }
+        }
+        public closePath(_from: Point): void {
+        }
+    }
+
     export class GraphicsSprite extends RectangleSprite {
         private mDrawList: PathDrawFunction[] = new Array<PathDrawFunction>();
         private mBeginState: number = kNoneBegin;
@@ -168,13 +197,11 @@ namespace ftk {
             });
         }
 
-        public ellipse(x: number, y: number, w: number, h: number, rotation: number, startAngle?: number, endAngle?: number): void {
+        public ellipse(x: number, y: number, rx: number, ry: number, rotation: number, startAngle?: number, endAngle?: number): void {
             if (this.mBeginState === kNoneBegin) {
                 return;
             }
 
-            let rx = w / 2;
-            let ry = h / 2;
             let sa = startAngle ? startAngle : 0;
             let ea = endAngle ? endAngle : PI_2_0X;
             this.mDrawList.push((rc) => {
@@ -205,6 +232,19 @@ namespace ftk {
                 rc.lineTo(radius + x, h + y);
                 rc.arc(radius + x, h - radius + y, radius, PI_HALF, Math.PI);
             });
+        }
+
+        public gpath(path: string): void;
+        public gpath(path: GPath): void;
+        public gpath(path: any): void {
+            let gp: GPath;
+            let l = new _drawGPathActionListener(this);
+            if (typeof (path) === 'string') {
+                gp = new GPath(path, l);
+            } else {
+                gp = path.clone(l);
+            }
+            gp.Execute();
         }
 
         public endFill(): void {

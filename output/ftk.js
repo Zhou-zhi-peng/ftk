@@ -330,6 +330,112 @@ var ftk;
         }
     }
     ftk.SequenceAnimation = SequenceAnimation;
+    class PathAnimation {
+        constructor(path, sampling, duration, loop, autostart) {
+            this.mPlayState = AnimationPlayState.Stop;
+            this.Loop = loop ? loop : false;
+            this.Duration = duration;
+            this.mPath = new ftk.Polygon(path.Fit(sampling));
+            this.mPath.closed = false;
+            this.mPathLength = this.mPath.length;
+            this.mCurrentVertex = 0;
+            this.mStep = this.mPathLength / this.Duration;
+            this.mLineSegment = new ftk.LineSegment();
+            this.mLastUpdateTime = 0;
+            this.mSuspendTime = 0;
+            this.mFirstFrame = true;
+            if (autostart) {
+                this.Start();
+            }
+        }
+        get PlayState() {
+            return this.mPlayState;
+        }
+        Start() {
+            if (this.mPlayState !== AnimationPlayState.Playing) {
+                this.Restart();
+            }
+        }
+        Restart() {
+            this.mPlayState = AnimationPlayState.Playing;
+            this.mCurrentVertex = 0;
+        }
+        Stop() {
+            this.mPlayState = AnimationPlayState.Stop;
+            this.mFirstFrame = true;
+            this.mCurrentVertex = 0;
+        }
+        Suspend(timestamp) {
+            if (this.mPlayState === AnimationPlayState.Playing) {
+                if (!timestamp) {
+                    this.mSuspendTime = performance.now();
+                }
+                else {
+                    this.mSuspendTime = timestamp;
+                }
+                this.mPlayState = AnimationPlayState.Suspended;
+            }
+        }
+        Resume(timestamp) {
+            if (this.mPlayState === AnimationPlayState.Suspended) {
+                let ts = timestamp ? timestamp : performance.now();
+                let t = this.mSuspendTime - this.mLastUpdateTime;
+                if (t < 0) {
+                    throw new RangeError('SuspendTime < StartTime');
+                }
+                this.mSuspendTime = ts - t;
+                this.mPlayState = AnimationPlayState.Playing;
+            }
+        }
+        Update(timestamp, target) {
+            if (this.mPath.vertexs.length > 1 && this.mPathLength > 0) {
+                let step;
+                if (this.mFirstFrame) {
+                    this.mFirstFrame = false;
+                    this.mLineSegment.start = this.mPath.vertexs[this.mCurrentVertex];
+                    this.mLineSegment.end = this.mPath.vertexs[this.mCurrentVertex + 1];
+                    step = this.mStep;
+                }
+                else {
+                    step = (timestamp - this.mLastUpdateTime) * this.mStep;
+                }
+                let pt;
+                let ls = this.mLineSegment.length;
+                if (ls >= step) {
+                    pt = this.mLineSegment.getAtByLength(step);
+                    this.mLineSegment.start = pt;
+                    if (ls === step) {
+                        ++this.mCurrentVertex;
+                        if (this.mCurrentVertex >= this.mPath.vertexs.length - 1) {
+                            this.mCurrentVertex = 0;
+                        }
+                        this.mLineSegment.start = this.mPath.vertexs[this.mCurrentVertex];
+                        this.mLineSegment.end = this.mPath.vertexs[this.mCurrentVertex + 1];
+                    }
+                }
+                else {
+                    do {
+                        step -= ls;
+                        ++this.mCurrentVertex;
+                        if (this.mCurrentVertex >= this.mPath.vertexs.length - 1) {
+                            this.mCurrentVertex = 0;
+                        }
+                        this.mLineSegment.start = this.mPath.vertexs[this.mCurrentVertex];
+                        this.mLineSegment.end = this.mPath.vertexs[this.mCurrentVertex + 1];
+                        ls = this.mLineSegment.length;
+                    } while (step > ls);
+                    pt = this.mLineSegment.getAtByLength(step);
+                    this.mLineSegment.start = pt;
+                }
+                target.Position = pt;
+            }
+            this.mLastUpdateTime = timestamp;
+        }
+        ValidateTarget(_target) {
+            return true;
+        }
+    }
+    ftk.PathAnimation = PathAnimation;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
@@ -2451,6 +2557,9 @@ var ftk;
         static equal(a, b) {
             return a.equal(b);
         }
+        static angle(a, b) {
+            return Math.atan2(b.y - a.y, b.x - a.x);
+        }
     }
     ftk.Point = Point;
     class Size {
@@ -2519,6 +2628,9 @@ var ftk;
             let oy = this.h / 2;
             this.x = value.x - ox;
             this.y = value.y - oy;
+        }
+        get length() {
+            return this.w + this.w + this.h + this.h;
         }
         get leftTop() {
             return new Point(this.x, this.y);
@@ -2722,8 +2834,8 @@ var ftk;
     class LineSegment {
         constructor(sx, sy, ex, ey) {
             if (sx instanceof Point && sy instanceof Point) {
-                this.start = sx.clone();
-                this.end = sy.clone();
+                this.start = sx;
+                this.end = sy;
             }
             else if (sx && sy && ex && ey) {
                 this.start = new Point(sx, sy);
@@ -2735,7 +2847,7 @@ var ftk;
             }
         }
         clone() {
-            return new LineSegment(this.start, this.end);
+            return new LineSegment(this.start.clone(), this.end.clone());
         }
         isInLine(point) {
             return LineSegment.isInLine(point, this);
@@ -2759,6 +2871,22 @@ var ftk;
         }
         get center() {
             return new Point(this.start.x + ((this.end.x - this.start.x) / 2), this.start.y + ((this.end.y - this.start.y) / 2));
+        }
+        get length() {
+            return Point.distance(this.start, this.end);
+        }
+        get offsetX() {
+            return this.end.x - this.start.x;
+        }
+        get offsetY() {
+            return this.end.y - this.start.y;
+        }
+        getAtByLength(length) {
+            let ll = this.length;
+            let r = length / ll;
+            let cx = this.offsetX * r;
+            let cy = this.offsetY * r;
+            return new Point(this.start.x + cx, this.start.y + cy);
         }
         equal(b) {
             return this.start.equal(b.start) && this.end.equal(b.end);
@@ -2844,7 +2972,7 @@ var ftk;
     class Circle {
         constructor(x, y, radius) {
             if (x instanceof Point) {
-                this.center = x.clone();
+                this.center = x;
                 this.radius = y;
             }
             else if (typeof (x) === "number") {
@@ -2857,7 +2985,7 @@ var ftk;
             }
         }
         clone() {
-            return new Circle(this.center, this.radius);
+            return new Circle(this.center.clone(), this.radius);
         }
         isInside(point) {
             return Point.distance(this.center, point) < this.radius;
@@ -2874,6 +3002,12 @@ var ftk;
         equal(b) {
             return this.center.equal(b.center) && this.radius === b.radius;
         }
+        get diameter() {
+            return this.radius + this.radius;
+        }
+        get length() {
+            return Math.PI * this.diameter;
+        }
         get box() {
             let s = this.radius + this.radius;
             return new Rectangle(this.center.x - this.radius, this.center.y - this.radius, s, s);
@@ -2887,12 +3021,113 @@ var ftk;
         }
     }
     ftk.Circle = Circle;
+    class Ellipse {
+        constructor(...args) {
+            if (args[0] instanceof Point) {
+                this.center = args[0];
+                this.radius = args[1];
+                this.rotation = args[2];
+            }
+            else if (typeof (args[0]) === "number") {
+                this.center = new Point(args[0], args[1]);
+                this.radius = new Size(args[2], args[3]);
+                this.rotation = args[4];
+            }
+            else {
+                this.center = new Point();
+                this.radius = new Size();
+                this.rotation = 0;
+            }
+        }
+        clone() {
+            return new Ellipse(this.center.clone(), this.radius.clone(), this.rotation);
+        }
+        isInside(point) {
+            return this.getPointRelationship(point) < 1;
+        }
+        isBoundary(point) {
+            return this.getPointRelationship(point) === 1;
+        }
+        isInsideOrBoundary(point) {
+            return this.getPointRelationship(point) <= 1;
+        }
+        equal(b) {
+            return this.center.equal(b.center) && this.radius.equal(b.radius) && this.rotation == this.rotation;
+        }
+        static equal(a, b) {
+            return a.equal(b);
+        }
+        getPointRelationship(point) {
+            let x = (point.x - this.center.x) * Math.cos(this.rotation) + (point.y - this.center.y) * Math.sin(this.rotation);
+            let y = -(point.x - this.center.x) * Math.sin(this.rotation) + (point.y - this.center.y) * Math.cos(this.rotation);
+            let r = (x / this.radius.cx) * (x / this.radius.cx) + (y / this.radius.cy) * (y / this.radius.cy);
+            return r;
+        }
+    }
+    ftk.Ellipse = Ellipse;
+    class EllipseArc {
+        constructor(...args) {
+            if (args[0] instanceof Point) {
+                this.center = args[0];
+                this.radius = args[1];
+                this.rotation = args[2];
+                this.startAngle = args[3];
+                this.endAngle = args[4];
+            }
+            else if (typeof (args[0]) === "number") {
+                this.center = new Point(args[0], args[1]);
+                this.radius = new Size(args[2], args[3]);
+                this.rotation = args[4];
+                this.startAngle = args[5];
+                this.endAngle = args[6];
+            }
+            else {
+                this.center = new Point();
+                this.radius = new Size();
+                this.rotation = 0;
+                this.startAngle = 0;
+                this.endAngle = 0;
+            }
+        }
+        clone() {
+            return new EllipseArc(this.center.clone(), this.radius.clone(), this.rotation, this.startAngle, this.endAngle);
+        }
+        isBoundary(point) {
+            if (this.getPointRelationship(point) === 1) {
+                let a = Point.angle(this.center, point);
+                return (a >= this.startAngle && a <= this.endAngle);
+            }
+            return false;
+        }
+        equal(b) {
+            return this.center.equal(b.center)
+                && this.radius.equal(b.radius)
+                && this.rotation == b.rotation
+                && this.startAngle == b.startAngle
+                && this.endAngle == b.endAngle;
+        }
+        static equal(a, b) {
+            return a.equal(b);
+        }
+        getPointRelationship(point) {
+            let x = (point.x - this.center.x) * Math.cos(this.rotation) + (point.y - this.center.y) * Math.sin(this.rotation);
+            let y = -(point.x - this.center.x) * Math.sin(this.rotation) + (point.y - this.center.y) * Math.cos(this.rotation);
+            let r = (x / this.radius.cx) * (x / this.radius.cx) + (y / this.radius.cy) * (y / this.radius.cy);
+            return r;
+        }
+    }
+    ftk.EllipseArc = EllipseArc;
     class Polygon {
-        constructor(vertexs) {
+        constructor(vertexs, clone) {
             let vs = new Array();
             if (vertexs) {
-                for (let v of vertexs) {
-                    vs.push(v.clone());
+                if (clone) {
+                    for (let v of vertexs) {
+                        vs.push(v.clone());
+                    }
+                }
+                else {
+                    vs.push(...vertexs);
                 }
             }
             this.mVertexs = vs;
@@ -2971,6 +3206,21 @@ var ftk;
         get center() {
             return this.box.center;
         }
+        get length() {
+            if (this.mVertexs.length < 2) {
+                return 0;
+            }
+            let l = 0;
+            for (let i = 1; i < this.mVertexs.length; ++i) {
+                l += Point.distance(this.mVertexs[i - 1], this.mVertexs[i]);
+            }
+            if (this.closed) {
+                let first = this.mVertexs[0];
+                let last = this.mVertexs[this.mVertexs.length - 1];
+                l += Point.distance(first, last);
+            }
+            return l;
+        }
         clone() {
             return new Polygon(this.mVertexs);
         }
@@ -3022,6 +3272,9 @@ var ftk;
             return false;
         }
         static isInPolygon(point, p) {
+            if (!p.closed) {
+                return false;
+            }
             let x = point.x;
             let y = point.y;
             let vs = p.mVertexs;
@@ -3045,6 +3298,109 @@ var ftk;
         }
     }
     ftk.Polygon = Polygon;
+    class BezierCurve {
+        constructor(...args) {
+            if (args[0] instanceof Point) {
+                this.controlStart = args[0];
+                this.controlEnd = args[1];
+                this.start = args[2];
+                this.end = args[3];
+            }
+            else if (typeof (args[0]) === 'number') {
+                this.controlStart = new Point(args[0], args[1]);
+                this.controlEnd = new Point(args[2], args[3]);
+                this.start = new Point(args[4], args[5]);
+                this.end = new Point(args[6], args[7]);
+            }
+            else {
+                this.controlStart = new Point();
+                this.controlEnd = new Point();
+                this.start = new Point();
+                this.end = new Point();
+            }
+        }
+        clone() {
+            return new BezierCurve(this.controlStart.clone(), this.controlEnd.clone(), this.start.clone(), this.end.clone());
+        }
+        fit(stept) {
+            let results = [];
+            for (let t = 0; t < 1; t += stept) {
+                results.push(this.getCurvePoint(t));
+            }
+            results.push(this.end);
+            return results;
+        }
+        fitToPolygon(stept) {
+            let p = new Polygon(this.fit(stept));
+            p.closed = false;
+            return p;
+        }
+        getCurvePoint(t) {
+            let t0 = 1 - t;
+            let t0pow2 = t0 * t0;
+            let t0pow3 = t0pow2 * t0;
+            let tpow2 = t * t;
+            let tpow3 = tpow2 * t;
+            let x = this.start.x * t0pow3 +
+                this.controlStart.x * t * t0pow2 * 3 +
+                this.controlEnd.x * tpow2 * t0 * 3 +
+                this.end.x * tpow3;
+            let y = this.start.y * t0pow3 +
+                this.controlStart.y * t * t0pow2 * 3 +
+                this.controlEnd.y * tpow2 * t0 * 3 +
+                this.end.y * tpow3;
+            return new Point(x, y);
+        }
+    }
+    ftk.BezierCurve = BezierCurve;
+    class QBezierCurve {
+        constructor(...args) {
+            if (args[0] instanceof Point) {
+                this.control = args[0];
+                this.start = args[1];
+                this.end = args[2];
+            }
+            else if (typeof (args[0]) === 'number') {
+                this.control = new Point(args[0], args[1]);
+                this.start = new Point(args[2], args[3]);
+                this.end = new Point(args[4], args[5]);
+            }
+            else {
+                this.control = new Point();
+                this.start = new Point();
+                this.end = new Point();
+            }
+        }
+        clone() {
+            return new QBezierCurve(this.control.clone(), this.start.clone(), this.end.clone());
+        }
+        fit(stept) {
+            let results = [];
+            for (let t = 0; t < 1; t += stept) {
+                results.push(this.getCurvePoint(t));
+            }
+            results.push(this.end);
+            return results;
+        }
+        fitToPolygon(stept) {
+            let p = new Polygon(this.fit(stept));
+            p.closed = false;
+            return p;
+        }
+        getCurvePoint(t) {
+            let t0 = 1 - t;
+            let t0pow = t0 * t0;
+            let tpow = t * t;
+            let x = this.start.x * t0pow +
+                this.control.x * t * t0 * 2 +
+                this.end.x * tpow;
+            let y = this.start.y * t0pow +
+                this.control.y * t * (1 - t) * 2 +
+                this.end.y * tpow;
+            return new Point(x, y);
+        }
+    }
+    ftk.QBezierCurve = QBezierCurve;
     class Vector {
         constructor(x, y) {
             this.x = x || 0;
@@ -3183,10 +3539,535 @@ var ftk;
 })(ftk || (ftk = {}));
 var ftk;
 (function (ftk) {
+    class GPNMoveTo {
+        constructor(x, y, actionListener) {
+            this.type = 77;
+            this.to = new ftk.Point(x, y);
+            this.listener = actionListener;
+        }
+        clone() {
+            return new GPNMoveTo(this.to.x, this.to.y, this.listener);
+        }
+        exec(from) {
+            this.listener.moveTo(from, this.to);
+        }
+        toPathString() {
+            return 'M ' + this.to.x.toString() + ' ' + this.to.y.toString();
+        }
+        toString() {
+            return this.toPathString();
+        }
+    }
+    class GPNLineTo {
+        constructor(x, y, actionListener) {
+            this.type = 76;
+            this.to = new ftk.Point(x, y);
+            this.listener = actionListener;
+        }
+        clone() {
+            return new GPNLineTo(this.to.x, this.to.y, this.listener);
+        }
+        exec(from) {
+            this.listener.lineTo(from, this.to);
+        }
+        toPathString() {
+            return 'L ' + this.to.x.toString() + ' ' + this.to.y.toString();
+        }
+        toString() {
+            return this.toPathString();
+        }
+    }
+    class GPNBezierCurveTo {
+        constructor(csx, csy, cex, cey, x, y, actionListener) {
+            this.type = 69;
+            this.controlStart = new ftk.Point(csx, csy);
+            this.controlEnd = new ftk.Point(cex, cey);
+            this.to = new ftk.Point(x, y);
+            this.listener = actionListener;
+        }
+        clone() {
+            return new GPNBezierCurveTo(this.controlStart.x, this.controlStart.y, this.controlEnd.x, this.controlEnd.y, this.to.x, this.to.y, this.listener);
+        }
+        exec(from) {
+            this.listener.bezierCurveTo(from, this.controlStart, this.controlEnd, this.to);
+        }
+        toPathString() {
+            return 'C ' + this.controlStart.x.toString() + ' ' + this.controlStart.y.toString() + ', '
+                + this.controlEnd.x.toString() + ' ' + this.controlEnd.y.toString() + ', '
+                + this.to.x.toString() + ' ' + this.to.y.toString();
+        }
+        toString() {
+            return this.toPathString();
+        }
+    }
+    class GPNQBezierCurveTo {
+        constructor(cx, cy, x, y, actionListener) {
+            this.type = 81;
+            this.control = new ftk.Point(cx, cy);
+            this.to = new ftk.Point(x, y);
+            this.listener = actionListener;
+        }
+        clone() {
+            return new GPNQBezierCurveTo(this.control.x, this.control.y, this.to.x, this.to.y, this.listener);
+        }
+        exec(from) {
+            this.listener.qbezierCurveTo(from, this.control, this.to);
+        }
+        toPathString() {
+            return 'Q ' + this.control.x.toString() + ' ' + this.control.y.toString() + ', '
+                + this.to.x.toString() + ' ' + this.to.y.toString();
+        }
+        toString() {
+            return this.toPathString();
+        }
+    }
+    class GPNEllipseTo {
+        constructor(rx, ry, rotation, laflag, sflag, x, y, actionListener) {
+            this.type = 65;
+            this.radius = new ftk.Size(rx, ry);
+            this.rotation = rotation;
+            this.laflag = laflag;
+            this.sflag = sflag;
+            this.to = new ftk.Point(x, y);
+            this.listener = actionListener;
+        }
+        clone() {
+            return new GPNEllipseTo(this.radius.cx, this.radius.cy, this.rotation, this.laflag, this.sflag, this.to.x, this.to.y, this.listener);
+        }
+        exec(from) {
+            this.listener.ellipseTo(from, this.radius, this.rotation, this.laflag, this.laflag, this.to);
+        }
+        toPathString() {
+            return 'A ' + this.radius.cx.toString() + ' ' + this.radius.cy.toString() + ' '
+                + this.rotation.toString() + ' '
+                + this.laflag.toString() + ' '
+                + this.sflag.toString() + ' '
+                + this.to.x.toString() + ' ' + this.to.y.toString();
+        }
+        toString() {
+            return this.toPathString();
+        }
+    }
+    class GPNCloseGPath {
+        constructor(actionListener) {
+            this.type = 90;
+            this.to = new ftk.Point();
+            this.listener = actionListener;
+        }
+        clone() {
+            return new GPNCloseGPath(this.listener);
+        }
+        exec(from) {
+            this.listener.closePath(from);
+        }
+        toPathString() {
+            return 'Z';
+        }
+        toString() {
+            return this.toPathString();
+        }
+    }
+    class GPathParser {
+        constructor(data, listener) {
+            this.mData = data;
+            this.mOffset = 0;
+            this.listener = listener;
+        }
+        parseNodes() {
+            let prevNode = new GPNCloseGPath(this.listener);
+            let results = new Array();
+            do {
+                const ch = this.getChar();
+                switch (ch) {
+                    case 77: {
+                        const x = this.getNumber();
+                        const y = this.getNumber();
+                        prevNode = new GPNMoveTo(x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 109: {
+                        const x = this.getNumber() + prevNode.to.x;
+                        const y = this.getNumber() + prevNode.to.y;
+                        prevNode = new GPNMoveTo(x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 76: {
+                        const x = this.getNumber();
+                        const y = this.getNumber();
+                        prevNode = new GPNLineTo(x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 108: {
+                        const x = this.getNumber() + prevNode.to.x;
+                        const y = this.getNumber() + prevNode.to.y;
+                        prevNode = new GPNLineTo(x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 72: {
+                        const x = this.getNumber();
+                        prevNode = new GPNLineTo(x, prevNode.to.y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 104: {
+                        const x = this.getNumber() + prevNode.to.x;
+                        prevNode = new GPNLineTo(x, prevNode.to.y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 86: {
+                        const y = this.getNumber();
+                        prevNode = new GPNLineTo(prevNode.to.x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 118: {
+                        const y = this.getNumber() + prevNode.to.y;
+                        prevNode = new GPNLineTo(prevNode.to.x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 67: {
+                        const c1x = this.getNumber();
+                        const c1y = this.getNumber();
+                        this.skipComma();
+                        const c2x = this.getNumber();
+                        const c2y = this.getNumber();
+                        this.skipComma();
+                        const x = this.getNumber();
+                        const y = this.getNumber();
+                        prevNode = new GPNBezierCurveTo(c1x, c1y, c2x, c2y, x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 99: {
+                        const c1x = this.getNumber() + prevNode.to.x;
+                        const c1y = this.getNumber() + prevNode.to.y;
+                        this.skipComma();
+                        const c2x = this.getNumber() + prevNode.to.x;
+                        const c2y = this.getNumber() + prevNode.to.y;
+                        this.skipComma();
+                        const x = this.getNumber() + prevNode.to.x;
+                        const y = this.getNumber() + prevNode.to.y;
+                        prevNode = new GPNBezierCurveTo(c1x, c1y, c2x, c2y, x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 83: {
+                        let px;
+                        let py;
+                        if (prevNode.type === 69) {
+                            px = prevNode.controlEnd.x;
+                            py = prevNode.controlEnd.y;
+                        }
+                        else {
+                            px = prevNode.to.x;
+                            py = prevNode.to.y;
+                        }
+                        const c1x = prevNode.to.x + (prevNode.to.x - px);
+                        const c1y = prevNode.to.y + (prevNode.to.y - py);
+                        const c2x = this.getNumber();
+                        const c2y = this.getNumber();
+                        this.skipComma();
+                        const x = this.getNumber();
+                        const y = this.getNumber();
+                        prevNode = new GPNBezierCurveTo(c1x, c1y, c2x, c2y, x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 115: {
+                        let px;
+                        let py;
+                        if (prevNode.type === 69) {
+                            px = prevNode.controlEnd.x;
+                            py = prevNode.controlEnd.y;
+                        }
+                        else {
+                            px = prevNode.to.x;
+                            py = prevNode.to.y;
+                        }
+                        const c1x = prevNode.to.x + (prevNode.to.x - px);
+                        const c1y = prevNode.to.y + (prevNode.to.y - py);
+                        const c2x = this.getNumber() + prevNode.to.x;
+                        const c2y = this.getNumber() + prevNode.to.y;
+                        this.skipComma();
+                        const x = this.getNumber() + prevNode.to.x;
+                        const y = this.getNumber() + prevNode.to.y;
+                        prevNode = new GPNBezierCurveTo(c1x, c1y, c2x, c2y, x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 81: {
+                        const cx = this.getNumber();
+                        const cy = this.getNumber();
+                        this.skipComma();
+                        const x = this.getNumber();
+                        const y = this.getNumber();
+                        prevNode = new GPNQBezierCurveTo(cx, cy, x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 113: {
+                        const cx = this.getNumber() + prevNode.to.x;
+                        const cy = this.getNumber() + prevNode.to.y;
+                        this.skipComma();
+                        const x = this.getNumber() + prevNode.to.x;
+                        const y = this.getNumber() + prevNode.to.y;
+                        prevNode = new GPNQBezierCurveTo(cx, cy, x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 84: {
+                        let px;
+                        let py;
+                        if (prevNode.type === 81) {
+                            px = prevNode.control.x;
+                            py = prevNode.control.y;
+                        }
+                        else {
+                            px = prevNode.to.x;
+                            py = prevNode.to.y;
+                        }
+                        const cx = prevNode.to.x + (prevNode.to.x - px);
+                        const cy = prevNode.to.y + (prevNode.to.y - py);
+                        const x = this.getNumber();
+                        const y = this.getNumber();
+                        prevNode = new GPNQBezierCurveTo(cx, cy, x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 116: {
+                        let px;
+                        let py;
+                        if (prevNode.type === 81) {
+                            px = prevNode.control.x;
+                            py = prevNode.control.y;
+                        }
+                        else {
+                            px = prevNode.to.x;
+                            py = prevNode.to.y;
+                        }
+                        const cx = prevNode.to.x + (prevNode.to.x - px);
+                        const cy = prevNode.to.y + (prevNode.to.y - py);
+                        const x = this.getNumber() + prevNode.to.x;
+                        const y = this.getNumber() + prevNode.to.y;
+                        prevNode = new GPNQBezierCurveTo(cx, cy, x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 65: {
+                        const rx = this.getNumber();
+                        const ry = this.getNumber();
+                        const rotation = this.getNumber();
+                        const lflag = this.getNumber();
+                        const sflag = this.getNumber();
+                        const x = this.getNumber();
+                        const y = this.getNumber();
+                        prevNode = new GPNEllipseTo(rx, ry, rotation, lflag, sflag, x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 97: {
+                        const rx = this.getNumber();
+                        const ry = this.getNumber();
+                        const rotation = this.getNumber();
+                        const lflag = this.getNumber();
+                        const sflag = this.getNumber();
+                        const x = this.getNumber() + prevNode.to.x;
+                        const y = this.getNumber() + prevNode.to.y;
+                        prevNode = new GPNEllipseTo(rx, ry, rotation, lflag, sflag, x, y, this.listener);
+                        results.push(prevNode);
+                        break;
+                    }
+                    case 90:
+                    case 122:
+                        prevNode = new GPNCloseGPath(this.listener);
+                        results.push(prevNode);
+                        break;
+                }
+            } while (!this.eof);
+            return results;
+        }
+        get eof() {
+            return this.mOffset > this.mData.length;
+        }
+        getChar() {
+            return this.mData.charCodeAt(this.mOffset++);
+        }
+        ungetChar() {
+            --this.mOffset;
+        }
+        getNumber() {
+            let ch = this.getChar();
+            while (ch !== 43 && ch !== 45 && ch !== 46 && (!(ch >= 48 && ch <= 57)) && (!this.eof)) {
+                ch = this.getChar();
+            }
+            let r = String.fromCharCode(ch);
+            ch = this.getChar();
+            while (ch === 46 || (ch >= 48 && ch <= 57) && (!this.eof)) {
+                r += String.fromCharCode(ch);
+                ch = this.getChar();
+            }
+            let n = parseFloat(r);
+            this.ungetChar();
+            return n;
+        }
+        skipComma() {
+            let ch = this.getChar();
+            while (ch !== 44 && (!this.eof)) {
+                ch = this.getChar();
+            }
+        }
+    }
+    class _defaultGPathActionListener {
+        moveTo() {
+        }
+        lineTo() {
+        }
+        bezierCurveTo() {
+        }
+        qbezierCurveTo() {
+        }
+        ellipseTo() {
+        }
+        closePath() {
+        }
+    }
+    class _fitGPathActionListener {
+        constructor(d) {
+            this.vertexs = new Array();
+            this.precision = d;
+        }
+        moveTo(_from, to) {
+            this.vertexs.push(to);
+        }
+        lineTo(_from, to) {
+            this.vertexs.push(to);
+        }
+        bezierCurveTo(from, cs, ce, to) {
+            let b = new ftk.BezierCurve(cs, ce, from, to);
+            this.vertexs.push(...b.fit(this.precision));
+        }
+        qbezierCurveTo(from, c, to) {
+            let b = new ftk.QBezierCurve(c, from, to);
+            this.vertexs.push(...b.fit(this.precision));
+        }
+        ellipseTo(_from, _r, _rotation, _laflag, _sflag, _to) {
+        }
+        closePath(_from) {
+            if (this.vertexs.length > 0) {
+                this.vertexs.push(this.vertexs[0]);
+            }
+        }
+    }
+    const _defaultListener = new _defaultGPathActionListener();
+    class GPath {
+        constructor(data, listener) {
+            this.mActionListener = listener ? listener : _defaultListener;
+            let parser = new GPathParser(data, this.mActionListener);
+            this.mNodes = parser.parseNodes();
+        }
+        MoveTo(x, y) {
+            this.mNodes.push(new GPNMoveTo(x, y, this.mActionListener));
+        }
+        LineTo(x, y) {
+            this.mNodes.push(new GPNLineTo(x, y, this.mActionListener));
+        }
+        BezierCurveTo(csx, csy, cex, cey, x, y) {
+            this.mNodes.push(new GPNBezierCurveTo(csx, csy, cex, cey, x, y, this.mActionListener));
+        }
+        QBezierCurveTo(cx, cy, x, y) {
+            this.mNodes.push(new GPNQBezierCurveTo(cx, cy, x, y, this.mActionListener));
+        }
+        EllipseTo(rx, ry, rotation, laflag, sflag, x, y) {
+            this.mNodes.push(new GPNEllipseTo(rx, ry, rotation, laflag, sflag, x, y, this.mActionListener));
+        }
+        ClosePath() {
+            this.mNodes.push(new GPNCloseGPath(this.mActionListener));
+        }
+        Execute() {
+            if (this.mNodes.length === 0) {
+                return;
+            }
+            let last = this.mNodes[0].to;
+            for (let v of this.mNodes) {
+                v.exec(last);
+                last = v.to;
+            }
+        }
+        Fit(d) {
+            let l = new _fitGPathActionListener(d);
+            let temp = this.clone(l);
+            temp.Execute();
+            return l.vertexs;
+        }
+        clone(listener) {
+            let l = listener ? listener : this.mActionListener;
+            let p = new GPath('', l);
+            if (l === this.mActionListener) {
+                for (let n of this.mNodes) {
+                    p.mNodes.push(n.clone());
+                }
+            }
+            else {
+                for (let n of this.mNodes) {
+                    let t = n.clone();
+                    t.listener = l;
+                    p.mNodes.push(t);
+                }
+            }
+            return p;
+        }
+        toPathString() {
+            let r = [];
+            for (const n of this.mNodes) {
+                r.push(n.toPathString());
+            }
+            return r.join(' ');
+        }
+        toString() {
+            return this.toPathString();
+        }
+    }
+    ftk.GPath = GPath;
+})(ftk || (ftk = {}));
+var ftk;
+(function (ftk) {
     const kStrokeBegin = 1;
     const kFillBegin = 2;
     const kPathBegin = 4;
     const kNoneBegin = 0;
+    class _drawGPathActionListener {
+        constructor(graphics) {
+            this.graphics = graphics;
+        }
+        moveTo(_from, to) {
+            this.graphics.moveTo(to.x, to.y);
+        }
+        lineTo(_from, to) {
+            this.graphics.lineTo(to.x, to.y);
+        }
+        bezierCurveTo(_from, cs, ce, to) {
+            this.graphics.cubicCurveTo(cs.x, cs.y, ce.x, ce.y, to.x, to.y);
+        }
+        qbezierCurveTo(_from, c, to) {
+            this.graphics.curveTo(c.x, c.y, to.x, to.y);
+        }
+        ellipseTo(from, r, rotation, _laflag, _sflag, to) {
+            if (r.cx == r.cy) {
+                this.graphics.arcTo(from.x, from.y, to.x, to.y, r.cx);
+            }
+            else {
+                this.graphics.ellipse(to.x, to.y, r.cx, r.cy, rotation);
+            }
+        }
+        closePath(_from) {
+        }
+    }
     class GraphicsSprite extends ftk.RectangleSprite {
         constructor() {
             super(...arguments);
@@ -3340,12 +4221,10 @@ var ftk;
                 rc.arc(centerX, centerY, radius, 0, ftk.PI_2_0X);
             });
         }
-        ellipse(x, y, w, h, rotation, startAngle, endAngle) {
+        ellipse(x, y, rx, ry, rotation, startAngle, endAngle) {
             if (this.mBeginState === kNoneBegin) {
                 return;
             }
-            let rx = w / 2;
-            let ry = h / 2;
             let sa = startAngle ? startAngle : 0;
             let ea = endAngle ? endAngle : ftk.PI_2_0X;
             this.mDrawList.push((rc) => {
@@ -3373,6 +4252,17 @@ var ftk;
                 rc.lineTo(radius + x, h + y);
                 rc.arc(radius + x, h - radius + y, radius, ftk.PI_HALF, Math.PI);
             });
+        }
+        gpath(path) {
+            let gp;
+            let l = new _drawGPathActionListener(this);
+            if (typeof (path) === 'string') {
+                gp = new ftk.GPath(path, l);
+            }
+            else {
+                gp = path.clone(l);
+            }
+            gp.Execute();
         }
         endFill() {
             if ((this.mBeginState & kFillBegin) !== kFillBegin) {

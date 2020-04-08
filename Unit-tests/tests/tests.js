@@ -13,22 +13,23 @@
         return true;
     })();
 
+    let createTexture = function (r, rid) {
+        let img = r.GetImage(rid);
+        if (img) {
+            return ftk.createTexture(img);
+        }
+        return ftk.createTexture(r.GetVideo(rid));
+    }
+
     QUnit.test("Initialize", function (assert) {
         assert.ok(ftkinit, "FTK LibrarySetup");
         assert.ok(ftkrun, "FTK Engine Running");
     });
 
-    QUnit.test("Engine Running", function (assert) {
+    /*QUnit.test("Engine running - VideoResource.Video", function (assert) {
         let R = ftk.Engine.R.Edit();
         assert.timeout(10000);
         let done = assert.async();
-        let createTexture = function (r, rid) {
-            let img = r.GetImage(rid);
-            if (img) {
-                return ftk.createTexture(img);
-            }
-            return ftk.createTexture(r.GetVideo(rid));
-        }
 
         ftk.Engine.on("loading", function () {
             assert.step('loading');
@@ -93,6 +94,55 @@
 
         assert.ok(R.Add("/output/ftk.js.map", "js.map"), "Load text Test");
         assert.ok(R.Has("js.map"), "Loader.Has");
+    });*/
+
+    QUnit.test("Engine running - GPath | PathAnimation", function (assert) {
+        let R = ftk.Engine.R.Edit();
+        assert.timeout(5000);
+        let done = assert.async();
+        assert.ok(R.Add("../docs/res/images/spaceBG.jpg", "BG"), "Load Image Test");
+
+        ftk.Engine.on("ready", function () {
+            let bkil = new ftk.BackgroundImageLayer();
+            assert.ok(bkil, "create ftk.BackgroundImageLayer");
+            bkil.BackgroundTexture = createTexture(ftk.Engine.R, "BG");
+            assert.ok(bkil.BackgroundTexture, "createTexture BG");
+            bkil.RepeatStyle = ftk.BackgroundImageRepeatStyle.repeat;
+            assert.ok(bkil.RepeatStyle === ftk.BackgroundImageRepeatStyle.repeat, "set RepeatStyle");
+            ftk.Engine.Root.AddLayer(bkil);
+            assert.ok(ftk.Engine.Root.GetLayer(bkil.Id), "GetLayer");
+
+            let path = new ftk.GPath(`M10 80 C 40 10, 65 10, 95 80 S 450 150, 580 500 S 500 100, 450 500 S -30 150, 10 80`);
+            let g = new ftk.GraphicsSprite(0, 0, 800, 600);
+            let g1 = new ftk.GraphicsSprite(0, 0, 50, 50);
+            let a = new ftk.PathAnimation(path, 0.1, 10000, true, true);
+
+            assert.ok(path, "create GPath");
+            assert.ok(g, "create GraphicsSprite");
+            assert.ok(a, "create PathAnimation");
+
+            g1.beginFill(new ftk.Color('#F00'));
+            g1.circle(25, 25, 25);
+            g1.endFill();
+            g1.AddAnimation(a);
+            g1.SetBasePointToCenter();
+            bkil.Add(g1);
+
+            g.beginStroke(3, new ftk.Color(0, 0, 255));
+            g.gpath(path);
+            g.endStroke();
+            bkil.Add(g);
+
+            done();
+        });
+
+        ftk.Engine.on("fault", function (message) {
+            assert.ok(false, 'Engine fault:' + message);
+        });
+
+        assert.ok(R, "Loader Created");
+        assert.ok(R.Add("../docs/res/images/spaceBG.jpg", "BG"), "Load Image Test");
+        assert.ok(R.GetImage("BG"), "Loader.GetImage");
     });
 
     QUnit.test("utility Tests", function (assert) {
@@ -167,6 +217,40 @@
         assert.ok(Path.isabsolute(path), 'ftk.utility.Path.isabsolute');
 
         assert.ok(ftk.utility.api.createOffscreenCanvas(300, 500), 'ftk.utility.api.createOffscreenCanvas');
+    });
+
+    QUnit.test("GPath Tests", function (assert) {
+        let GPath = ftk.GPath;
+        let gpath = new GPath(`
+        M10 10 H 90 V 90 H 10 L 10 10
+        M10 10 h 80 v 80 h -80
+        M10 10 H 90 V 90 H 10
+        M130 10 C 120 20, 180 20, 170 10
+        M10 80 C 40 10, 65 10, 95 80 S 150 150, 180 80
+        M10 80 Q 52.5 10, 95 80 T 180 80
+            M10 315
+           L 110 215
+           A 30 50 0 0 1 162.55 162.45
+           L 172.55 152.45
+           A 30 50 -45 0 1 215.1 109.9
+           L 315 10`);
+        assert.ok(gpath, "create GPath");
+        assert.ok(gpath.toString().startsWith('M 10 10 L 90 10 L 90 90 L 10 90 L 10 10'), "GPathParser startsWith");
+        assert.ok(gpath.toString().endsWith('A 30 50 -45 0 1 215.1 109.9 L 315 10'), "GPathParser endsWith");
+    });
+
+    QUnit.test("Geometry Tests", function (assert) {
+        assert.ok(ftk.Point, "ftk.Point");
+        assert.ok(ftk.Size, "ftk.Size");
+        assert.ok(ftk.Rectangle, "ftk.Rectangle");
+        assert.ok(ftk.LineSegment, "ftk.LineSegment");
+        assert.ok(ftk.Circle, "ftk.Circle");
+        assert.ok(ftk.Polygon, "ftk.Polygon");
+        assert.ok(ftk.BezierCurve, "ftk.BezierCurve");
+        assert.ok(ftk.QBezierCurve, "ftk.QBezierCurve");
+        assert.ok(ftk.Vector, "ftk.Vector");
+        assert.ok(ftk.DToR, "ftk.DToR");
+        assert.ok(ftk.RToD, "ftk.RToD");
     });
 })();
 

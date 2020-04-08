@@ -383,4 +383,125 @@ namespace ftk {
             }
         }
     }
+
+    export class PathAnimation implements IAnimation {
+        private mPlayState: AnimationPlayState;
+        private mPath: Polygon;
+        private mPathLength: number;
+        private mFirstFrame: boolean;
+        private mSuspendTime: number;
+        private mLastUpdateTime: number;
+        private mLineSegment: LineSegment;
+        private mStep: number;
+        private mCurrentVertex: number;
+        public Duration: number;
+        public Loop: boolean;
+
+        public constructor(path: GPath, sampling: number, duration: number, loop?: boolean, autostart?: boolean) {
+            this.mPlayState = AnimationPlayState.Stop;
+            this.Loop = loop ? loop : false;
+            this.Duration = duration;
+            this.mPath = new Polygon(path.Fit(sampling));
+            this.mPath.closed = false;
+            this.mPathLength = this.mPath.length;
+            this.mCurrentVertex = 0;
+            this.mStep = this.mPathLength / this.Duration;
+            this.mLineSegment = new LineSegment();
+            this.mLastUpdateTime = 0;
+            this.mSuspendTime = 0;
+            this.mFirstFrame = true;
+            if (autostart) {
+                this.Start();
+            }
+        }
+
+        public get PlayState(): AnimationPlayState {
+            return this.mPlayState;
+        }
+
+        public Start(): void {
+            if (this.mPlayState !== AnimationPlayState.Playing) {
+                this.Restart();
+            }
+        }
+
+        public Restart(): void {
+            this.mPlayState = AnimationPlayState.Playing;
+            this.mCurrentVertex = 0;
+        }
+
+        public Stop(): void {
+            this.mPlayState = AnimationPlayState.Stop;
+            this.mFirstFrame = true;
+            this.mCurrentVertex = 0;
+        }
+
+        public Suspend(timestamp?: number): void {
+            if (this.mPlayState === AnimationPlayState.Playing) {
+                if (!timestamp) {
+                    this.mSuspendTime = performance.now();
+                }
+                else {
+                    this.mSuspendTime = timestamp;
+                }
+                this.mPlayState = AnimationPlayState.Suspended;
+            }
+        }
+        public Resume(timestamp?: number): void {
+            if (this.mPlayState === AnimationPlayState.Suspended) {
+                let ts = timestamp ? timestamp : performance.now();
+                let t = this.mSuspendTime - this.mLastUpdateTime;
+                if (t < 0) {
+                    throw new RangeError('SuspendTime < StartTime');
+                }
+                this.mSuspendTime = ts - t;
+                this.mPlayState = AnimationPlayState.Playing;
+            }
+        }
+        public Update(timestamp: number, target: any): void {
+            if (this.mPath.vertexs.length > 1 && this.mPathLength > 0) {
+                let step: number;
+                if (this.mFirstFrame) {
+                    this.mFirstFrame = false;
+                    this.mLineSegment.start = this.mPath.vertexs[this.mCurrentVertex];
+                    this.mLineSegment.end = this.mPath.vertexs[this.mCurrentVertex + 1];
+                    step = this.mStep;
+                } else {
+                    step = (timestamp - this.mLastUpdateTime) * this.mStep;
+                }
+                let pt: Point;
+                let ls = this.mLineSegment.length;
+                if (ls >= step) {
+                    pt = this.mLineSegment.getAtByLength(step);
+                    this.mLineSegment.start = pt;
+                    if (ls === step) {
+                        ++this.mCurrentVertex;
+                        if (this.mCurrentVertex >= this.mPath.vertexs.length - 1) {
+                            this.mCurrentVertex = 0;
+                        }
+                        this.mLineSegment.start = this.mPath.vertexs[this.mCurrentVertex];
+                        this.mLineSegment.end = this.mPath.vertexs[this.mCurrentVertex + 1];
+                    }
+                } else {
+                    do {
+                        step -= ls;
+                        ++this.mCurrentVertex;
+                        if (this.mCurrentVertex >= this.mPath.vertexs.length - 1) {
+                            this.mCurrentVertex = 0;
+                        }
+                        this.mLineSegment.start = this.mPath.vertexs[this.mCurrentVertex];
+                        this.mLineSegment.end = this.mPath.vertexs[this.mCurrentVertex + 1];
+                        ls = this.mLineSegment.length;
+                    } while (step > ls);
+                    pt = this.mLineSegment.getAtByLength(step);
+                    this.mLineSegment.start = pt;
+                }
+                target.Position = pt;
+            }
+            this.mLastUpdateTime = timestamp;
+        }
+        public ValidateTarget(_target: any): boolean {
+            return true;
+        }
+    }
 }

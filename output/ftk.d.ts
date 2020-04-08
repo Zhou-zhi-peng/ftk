@@ -79,11 +79,25 @@ declare namespace ftk {
         Frames(): IReadonlyArray<ITexture>;
         Interval: number;
         constructor(interval: number, textures?: IReadonlyArray<ITexture>, loop?: boolean, autostart?: boolean);
-        public AddFrame(texture: ITexture): void;
-        public RemoveAt(index: number): void;
-        public ClearFrames(): void;
-        public ValidateTarget(target: Sprite): boolean;
+        AddFrame(texture: ITexture): void;
+        RemoveAt(index: number): void;
+        ClearFrames(): void;
+        ValidateTarget(target: Sprite): boolean;
         protected UpdateTarget(target: ImageSprite, value: number): void;
+    }
+
+    class PathAnimation implements IAnimation {
+        Duration: number;
+        Loop: boolean;
+        constructor(path: GPath, sampling: number, duration: number, loop?: boolean, autostart?: boolean);
+        get PlayState(): AnimationPlayState;
+        Start(): void;
+        Restart(): void;
+        Stop(): void;
+        Suspend(timestamp?: number): void;
+        Resume(timestamp?: number): void;
+        Update(timestamp: number, _target: any): void;
+        ValidateTarget(target: any): boolean;
     }
 }
 declare namespace ftk {
@@ -1039,9 +1053,38 @@ declare namespace ftk.ui {
         protected OnDispatchMouseEvent(ev: GMouseEvent, _forced: boolean): void;
     }
 }
+
 declare namespace ftk.ui {
     class Panel extends RectangleShape {
         protected OnRander(rc: CanvasRenderingContext2D): void;
+    }
+}
+
+declare namespace ftk {
+    interface IGPathActionListener {
+        moveTo(from: Point, to: Point): void;
+        lineTo(from: Point, to: Point): void;
+        bezierCurveTo(from: Point, cs: Point, ce: Point, to: Point): void;
+        qbezierCurveTo(from: Point, c: Point, to: Point): void;
+        ellipseTo(from: Point, r: Size, rotation: number, laflag: number, sflag: number, to: Point): void;
+        closePath(from: Point): void;
+    }
+
+    class GPath {
+        constructor(data: string);
+        MoveTo(x: number, y: number): void;
+        LineTo(x: number, y: number): void;
+        BezierCurveTo(csx: number, csy: number, cex: number, cey: number, x: number, y: number): void;
+        QBezierCurveTo(cx: number, cy: number, x: number, y: number): void;
+        EllipseTo(rx: number, ry: number, rotation: number, laflag: number, sflag: number, x: number, y: number): void;
+        ClosePath(): void;
+
+        Execute(): void;
+        Fit(d: number): Point[];
+        clone(listener?: IGPathActionListener): GPath;
+
+        toPathString(): string;
+        toString(): string;
     }
 }
 
@@ -1062,7 +1105,7 @@ declare namespace ftk {
         arc(centerX: number, centerY: number, radius: number, startAngle: number, endAngle: number, anticlockwise: boolean): void;
         arcTo(startX: number, startY: number, endX: number, endY: number, radius: number): void;
         circle(centerX: number, centerY: number, radius: number): void;
-        ellipse(x: number, y: number, w: number, h: number, rotation: number, startAngle?: number, endAngle?: number): void;
+        ellipse(x: number, y: number, rx: number, ry: number, rotation: number, startAngle?: number, endAngle?: number): void;
         rect(x: number, y: number, w: number, h: number): void;
         roundRect(x: number, y: number, w: number, h: number, radius: number): void;
         lineTo(x: number, y: number): void;

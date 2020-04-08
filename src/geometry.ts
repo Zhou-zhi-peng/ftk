@@ -67,6 +67,10 @@ namespace ftk {
         public static equal(a: Point, b: Point): boolean {
             return a.equal(b);
         }
+
+        public static angle(a: Point, b: Point): number {
+            return Math.atan2(b.y - a.y, b.x - a.x);
+        }
     }
 
     export class Size implements IClone<Size> {
@@ -154,6 +158,10 @@ namespace ftk {
             let oy = this.h / 2;
             this.x = value.x - ox;
             this.y = value.y - oy;
+        }
+
+        public get length(): number {
+            return this.w + this.w + this.h + this.h;
         }
 
         public get leftTop(): Point {
@@ -382,8 +390,8 @@ namespace ftk {
         constructor(sx: number, sy: number, ex: number, ey: number);
         constructor(sx?: any, sy?: any, ex?: number, ey?: number) {
             if (sx instanceof Point && sy instanceof Point) {
-                this.start = sx.clone();
-                this.end = sy.clone();
+                this.start = sx;
+                this.end = sy;
             } else if (sx && sy && ex && ey) {
                 this.start = new Point(sx, sy);
                 this.end = new Point(ex, ey);
@@ -394,7 +402,7 @@ namespace ftk {
         }
 
         public clone(): LineSegment {
-            return new LineSegment(this.start, this.end);
+            return new LineSegment(this.start.clone(), this.end.clone());
         }
 
         public isInLine(point: Point): boolean {
@@ -433,6 +441,26 @@ namespace ftk {
                 this.start.x + ((this.end.x - this.start.x) / 2),
                 this.start.y + ((this.end.y - this.start.y) / 2)
             );
+        }
+
+        public get length(): number {
+            return Point.distance(this.start, this.end);
+        }
+
+        public get offsetX(): number {
+            return this.end.x - this.start.x;
+        }
+
+        public get offsetY(): number {
+            return this.end.y - this.start.y;
+        }
+
+        public getAtByLength(length: number): Point {// 需要优化
+            let ll = this.length;
+            let r = length / ll;
+            let cx = this.offsetX * r;
+            let cy = this.offsetY * r;
+            return new Point(this.start.x + cx, this.start.y + cy);
         }
 
         public equal(b: LineSegment): boolean {
@@ -530,7 +558,7 @@ namespace ftk {
         constructor(x: number, y: number, radius: number);
         constructor(x?: any, y?: any, radius?: any) {
             if (x instanceof Point) {
-                this.center = x.clone();
+                this.center = x;
                 this.radius = y;
             } else if (typeof (x) === "number") {
                 this.center = new Point(x, y);
@@ -542,7 +570,7 @@ namespace ftk {
         }
 
         public clone(): Circle {
-            return new Circle(this.center, this.radius);
+            return new Circle(this.center.clone(), this.radius);
         }
 
         public isInside(point: Point): boolean {
@@ -565,6 +593,14 @@ namespace ftk {
             return this.center.equal(b.center) && this.radius === b.radius;
         }
 
+        public get diameter(): number {
+            return this.radius + this.radius;
+        }
+
+        public get length(): number {
+            return Math.PI * this.diameter;
+        }
+
         public get box(): Rectangle {
             let s = this.radius + this.radius;
             return new Rectangle(
@@ -584,14 +620,136 @@ namespace ftk {
         }
     }
 
+    export class Ellipse implements IClone<Ellipse>{
+        public center: Point;
+        public radius: Size;
+        public rotation: number;
+        constructor();
+        constructor(center: Point, radius: Size, rotation: number);
+        constructor(x: number, y: number, radiusX: number, radiusY: number, rotation: number);
+        constructor(...args: any[]) {
+            if (args[0] instanceof Point) {
+                this.center = args[0];
+                this.radius = args[1];
+                this.rotation = args[2];
+            } else if (typeof (args[0]) === "number") {
+                this.center = new Point(args[0], args[1]);
+                this.radius = new Size(args[2], args[3]);
+                this.rotation = args[4];
+            } else {
+                this.center = new Point();
+                this.radius = new Size();
+                this.rotation = 0;
+            }
+        }
+
+        public clone(): Ellipse {
+            return new Ellipse(this.center.clone(), this.radius.clone(), this.rotation);
+        }
+
+        public isInside(point: Point): boolean {
+            return this.getPointRelationship(point) < 1;
+        }
+
+        public isBoundary(point: Point): boolean {
+            return this.getPointRelationship(point) === 1;
+        }
+
+        public isInsideOrBoundary(point: Point): boolean {
+            return this.getPointRelationship(point) <= 1;
+        }
+
+        public equal(b: Ellipse): boolean {
+            return this.center.equal(b.center) && this.radius.equal(b.radius) && this.rotation == this.rotation;
+        }
+
+        public static equal(a: Ellipse, b: Ellipse): boolean {
+            return a.equal(b);
+        }
+
+        private getPointRelationship(point: Point): number {
+            let x = (point.x - this.center.x) * Math.cos(this.rotation) + (point.y - this.center.y) * Math.sin(this.rotation);
+            let y = -(point.x - this.center.x) * Math.sin(this.rotation) + (point.y - this.center.y) * Math.cos(this.rotation);
+            let r = (x / this.radius.cx) * (x / this.radius.cx) + (y / this.radius.cy) * (y / this.radius.cy);
+            return r;
+        }
+    }
+
+    export class EllipseArc implements IClone<EllipseArc>{
+        public center: Point;
+        public radius: Size;
+        public rotation: number;
+        public startAngle: number;
+        public endAngle: number;
+        constructor();
+        constructor(center: Point, radius: Size, rotation: number, startAngle: number, endAngle: number);
+        constructor(x: number, y: number, radiusX: number, radiusY: number, rotation: number, startAngle: number, endAngle: number);
+        constructor(...args: any[]) {
+            if (args[0] instanceof Point) {
+                this.center = args[0];
+                this.radius = args[1];
+                this.rotation = args[2];
+                this.startAngle = args[3];
+                this.endAngle = args[4];
+            } else if (typeof (args[0]) === "number") {
+                this.center = new Point(args[0], args[1]);
+                this.radius = new Size(args[2], args[3]);
+                this.rotation = args[4];
+                this.startAngle = args[5];
+                this.endAngle = args[6];
+            } else {
+                this.center = new Point();
+                this.radius = new Size();
+                this.rotation = 0;
+                this.startAngle = 0;
+                this.endAngle = 0;
+            }
+        }
+
+        public clone(): EllipseArc {
+            return new EllipseArc(this.center.clone(), this.radius.clone(), this.rotation, this.startAngle, this.endAngle);
+        }
+
+        public isBoundary(point: Point): boolean {
+            if (this.getPointRelationship(point) === 1) {
+                let a = Point.angle(this.center, point);
+                return (a >= this.startAngle && a <= this.endAngle);
+            }
+            return false;
+        }
+
+        public equal(b: EllipseArc): boolean {
+            return this.center.equal(b.center)
+                && this.radius.equal(b.radius)
+                && this.rotation == b.rotation
+                && this.startAngle == b.startAngle
+                && this.endAngle == b.endAngle;
+        }
+
+        public static equal(a: Ellipse, b: Ellipse): boolean {
+            return a.equal(b);
+        }
+
+        private getPointRelationship(point: Point): number {
+            let x = (point.x - this.center.x) * Math.cos(this.rotation) + (point.y - this.center.y) * Math.sin(this.rotation);
+            let y = -(point.x - this.center.x) * Math.sin(this.rotation) + (point.y - this.center.y) * Math.cos(this.rotation);
+            let r = (x / this.radius.cx) * (x / this.radius.cx) + (y / this.radius.cy) * (y / this.radius.cy);
+            return r;
+        }
+    }
+
     export class Polygon implements IClone<Polygon> {
         private mVertexs: Point[];
         public closed: boolean;
-        constructor(vertexs?: IReadonlyArray<Point>) {
+        constructor(vertexs?: IReadonlyArray<Point>, clone?: boolean) {
             let vs = new Array<Point>();
             if (vertexs) {
-                for (let v of vertexs) {
-                    vs.push(v.clone());
+                if (clone) {
+                    for (let v of vertexs) {
+                        vs.push(v.clone());
+                    }
+                } else {
+                    vs.push(...vertexs);
                 }
             }
             this.mVertexs = vs;
@@ -675,6 +833,21 @@ namespace ftk {
             return this.box.center;
         }
 
+        public get length(): number {
+            if (this.mVertexs.length < 2) {
+                return 0;
+            }
+            let l = 0;
+            for (let i = 1; i < this.mVertexs.length; ++i) {
+                l += Point.distance(this.mVertexs[i - 1], this.mVertexs[i]);
+            }
+            if (this.closed) {
+                let first = this.mVertexs[0];
+                let last = this.mVertexs[this.mVertexs.length - 1];
+                l += Point.distance(first, last);
+            }
+            return l;
+        }
         public clone(): Polygon {
             return new Polygon(this.mVertexs);
         }
@@ -736,6 +909,9 @@ namespace ftk {
         }
 
         public static isInPolygon(point: Point, p: Polygon): boolean {
+            if (!p.closed) {
+                return false;
+            }
             let x = point.x;
             let y = point.y;
             let vs = p.mVertexs;
@@ -757,6 +933,127 @@ namespace ftk {
 
         public static equal(a: Polygon, b: Polygon): boolean {
             return a.equal(b);
+        }
+    }
+
+    export class BezierCurve implements IClone<BezierCurve> {
+        public controlStart: Point;
+        public controlEnd: Point;
+        public start: Point;
+        public end: Point;
+        public constructor();
+        public constructor(cs: Point, ce: Point, s: Point, e: Point);
+        public constructor(csx: number, csy: number, cex: number, cey: number, sx: number, sy: number, ex: number, ey: number);
+        public constructor(...args: any[]) {
+            if (args[0] instanceof Point) {
+                this.controlStart = args[0];
+                this.controlEnd = args[1];
+                this.start = args[2];
+                this.end = args[3];
+            } else if (typeof (args[0]) === 'number') {
+                this.controlStart = new Point(args[0], args[1]);
+                this.controlEnd = new Point(args[2], args[3]);
+                this.start = new Point(args[4], args[5]);
+                this.end = new Point(args[6], args[7]);
+            } else {
+                this.controlStart = new Point();
+                this.controlEnd = new Point();
+                this.start = new Point();
+                this.end = new Point();
+            }
+        }
+
+        public clone(): BezierCurve {
+            return new BezierCurve(this.controlStart.clone(), this.controlEnd.clone(), this.start.clone(), this.end.clone());
+        }
+
+        public fit(stept: number): Point[] {
+            let results = [];
+            for (let t = 0; t < 1; t += stept) {
+                results.push(this.getCurvePoint(t));
+            }
+            results.push(this.end);
+            return results;
+        }
+
+        public fitToPolygon(stept: number): Polygon {
+            let p = new Polygon(this.fit(stept));
+            p.closed = false;
+            return p;
+        }
+
+        protected getCurvePoint(t: number): Point {
+            let t0 = 1 - t;
+            let t0pow2 = t0 * t0;
+            let t0pow3 = t0pow2 * t0;
+            let tpow2 = t * t;
+            let tpow3 = tpow2 * t;
+
+            let x = this.start.x * t0pow3 +
+                this.controlStart.x * t * t0pow2 * 3 +
+                this.controlEnd.x * tpow2 * t0 * 3 +
+                this.end.x * tpow3;
+            let y = this.start.y * t0pow3 +
+                this.controlStart.y * t * t0pow2 * 3 +
+                this.controlEnd.y * tpow2 * t0 * 3 +
+                this.end.y * tpow3;
+            return new Point(x, y);
+        }
+    }
+
+    export class QBezierCurve implements IClone<QBezierCurve> {
+        public control: Point;
+        public start: Point;
+        public end: Point;
+        public constructor();
+        public constructor(c: Point, s: Point, e: Point);
+        public constructor(cx: number, cy: number, sx: number, sy: number, ex: number, ey: number);
+        public constructor(...args: any[]) {
+            if (args[0] instanceof Point) {
+                this.control = args[0];
+                this.start = args[1];
+                this.end = args[2];
+            } else if (typeof (args[0]) === 'number') {
+                this.control = new Point(args[0], args[1]);
+                this.start = new Point(args[2], args[3]);
+                this.end = new Point(args[4], args[5]);
+            } else {
+                this.control = new Point();
+                this.start = new Point();
+                this.end = new Point();
+            }
+        }
+
+        public clone(): QBezierCurve {
+            return new QBezierCurve(this.control.clone(), this.start.clone(), this.end.clone());
+        }
+
+        public fit(stept: number): Point[] {
+            let results = [];
+            for (let t = 0; t < 1; t += stept) {
+                results.push(this.getCurvePoint(t));
+            }
+            results.push(this.end);
+            return results;
+        }
+
+        public fitToPolygon(stept: number): Polygon {
+            let p = new Polygon(this.fit(stept));
+            p.closed = false;
+            return p;
+        }
+
+        protected getCurvePoint(t: number): Point {
+            let t0 = 1 - t;
+            let t0pow = t0 * t0;
+            let tpow = t * t;
+            let x = this.start.x * t0pow +
+                this.control.x * t * t0 * 2 +
+                this.end.x * tpow;
+            let y = this.start.y * t0pow +
+                this.control.y * t * (1 - t) * 2 +
+                this.end.y * tpow;
+            return new Point(x, y);
         }
     }
 

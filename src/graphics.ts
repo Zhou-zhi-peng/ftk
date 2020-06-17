@@ -440,7 +440,7 @@ namespace ftk {
             }
 
             if ((this.mBeginState & kFillBegin) === kFillBegin) {
-                rc.stroke();
+                rc.fill();
             }
 
             if ((this.mBeginState & kStrokeBegin) === kStrokeBegin) {
